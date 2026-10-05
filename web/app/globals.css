@@ -135,6 +135,93 @@
   --heading-tracking: -0.03em;
 }
 
+/* Modern minimal: black, white and soft grey, large rounded cards, attempts as dots.
+   The intro sits on a dark card with a thin progress line. */
+[data-design="minimal"] {
+  --paper: #ededee;
+  --ink: #161618;
+  --ink-soft: #8b8b90;
+  --pen: #161618;
+  --pen-dark: #000;
+  --red: #d0342c;
+  --highlight: #ececee;
+  --on-highlight: #161618;
+  --card: #fff;
+  --line: #e6e6e8;
+  --bw: 1px;
+  --radius: 28px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 16px 40px rgba(0, 0, 0, 0.06);
+  --pen-tint: rgba(0, 0, 0, 0.05);
+  --focus-ring: rgba(0, 0, 0, 0.15);
+  --track: #ececee;
+  --timefill: #161618;
+  --avatar: #161618;
+  --font-heading: "Onest", var(--font-body);
+  --heading-weight: 700;
+  --heading-tracking: -0.04em;
+  --numbers: "Onest", var(--font-body);
+  --paper-pattern: none;
+}
+
+[data-design="minimal"] .board,
+[data-design="minimal"] .sheet {
+  border-color: transparent;
+}
+
+[data-design="minimal"] .hero > div:first-child {
+  position: relative;
+  padding: 200px 40px 40px;
+  border-radius: var(--radius);
+  background: #1c1c1e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='220' viewBox='0 0 600 220'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.55' stroke-width='1.5'%3E%3Cpath d='M-10 40C80 60 120 90 210 92C300 94 330 70 300 110C270 150 200 140 210 150'/%3E%3Cpath d='M200 150C300 140 380 140 420 150C470 162 460 190 520 196C560 200 600 196 620 194'/%3E%3C/g%3E%3Ccircle cx='200' cy='150' r='22' fill='none' stroke='%23fff' stroke-width='1.5'/%3E%3Ccircle cx='200' cy='150' r='9' fill='%23fff'/%3E%3Ccircle cx='120' cy='74' r='5' fill='%23fff'/%3E%3Ccircle cx='420' cy='150' r='5' fill='%231c1c1e' stroke='%23fff' stroke-width='1.5'/%3E%3Ccircle cx='520' cy='196' r='5' fill='%231c1c1e' stroke='%23fff' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat top left / 100% auto;
+  color: #fff;
+}
+
+[data-design="minimal"] .hero h1 {
+  color: #8b8b90;
+}
+
+[data-design="minimal"] .hero h1 .clock {
+  color: #fff;
+}
+
+[data-design="minimal"] .hero p,
+[data-design="minimal"] .rules li {
+  color: #b9b9be;
+  border-color: #2e2e31;
+}
+
+[data-design="minimal"] .rules b {
+  color: #fff;
+}
+
+[data-design="minimal"] .hero > div:first-child .btn {
+  background: #fff;
+  border-color: #fff;
+  color: #161618;
+}
+
+[data-design="minimal"] .slots-bar {
+  display: none;
+}
+
+[data-design="minimal"] .slots-dots {
+  display: grid;
+}
+
+[data-design="minimal"] .timebar {
+  height: 6px;
+}
+
+[data-design="minimal"] .status {
+  border-width: 1px;
+}
+
+@media (max-width: 520px) {
+  [data-design="minimal"] .hero > div:first-child {
+    padding: 140px 24px 28px;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -432,6 +519,22 @@ a {
   pointer-events: none;
 }
 
+.slots-dots {
+  display: none;
+  grid-template-columns: repeat(20, 1fr);
+  gap: 5px;
+}
+
+.slots-dots i {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--track);
+}
+
+.slots-dots i.used {
+  background: var(--pen);
+}
+
 .slots-legend {
   display: flex;
   justify-content: space-between;
@@ -489,6 +592,7 @@ a {
 }
 
 .leaders .avatar {
+  background: var(--avatar, var(--av));
   width: 36px;
   height: 36px;
   border-radius: 50%;

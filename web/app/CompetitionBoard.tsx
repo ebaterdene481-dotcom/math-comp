@@ -112,7 +112,7 @@ export function CompetitionBoard() {
               {data.leaders.map((l) => (
                 <li key={l.rank} className={l.rank === 1 ? "first" : undefined}>
                   <span className="rank">{l.rank}</span>
-                  <span className="avatar" style={{ background: avatarColor(l.nickname) }} aria-hidden="true">
+                  <span className="avatar" style={{ "--av": avatarColor(l.nickname) } as React.CSSProperties} aria-hidden="true">
                     {[...l.nickname][0]?.toUpperCase()}
                   </span>
                   <span className="nick">{l.nickname}</span>
@@ -200,6 +200,12 @@ function Slots({ used, max }: { used: number; max: number }) {
         aria-label={`${max} оролдлогоос ${used} нь ашиглагдсан`}
       >
         <i style={{ width: `${(used / max) * 100}%` }} />
+      </div>
+      {/* Same numbers as one dot per attempt; designs choose which of the two to show. */}
+      <div className="slots-dots" aria-hidden="true">
+        {Array.from({ length: max }, (_, i) => (
+          <i key={i} className={i < used ? "used" : undefined} />
+        ))}
       </div>
       <div className="slots-legend">
         <span>

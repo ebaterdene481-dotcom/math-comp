@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 
 const OPTIONS = [
+  { id: "minimal", name: "6. Минимал (шинэ)", swatch: ["#161618", "#ffffff", "#ededee"] },
   { id: "", name: "1. Тайван хөх", swatch: ["#1f3c88", "#e3e9f8", "#f5f6f8"] },
   { id: "heritage", name: "2. Монгол хээ", swatch: ["#12355b", "#c8962e", "#fbfaf7"] },
   { id: "app", name: "3. Орчин үеийн апп", swatch: ["#ea580c", "#ffffff", "#f2f4f7"] },
@@ -12,12 +13,13 @@ const OPTIONS = [
 export function DesignPicker() {
   const [current, setCurrent] = useState(() => {
     try {
-      return localStorage.getItem("preview.design") ?? "";
+      return localStorage.getItem("preview.design") ?? "minimal";
     } catch {
       return "";
     }
   });
-  const [open, setOpen] = useState(true);
+  // Starts folded on phones so it does not cover the page.
+  const [open, setOpen] = useState(() => window.innerWidth > 700);
 
   useEffect(() => {
     if (current) document.documentElement.dataset.design = current;

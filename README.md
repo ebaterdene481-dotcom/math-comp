@@ -52,6 +52,12 @@ npm run dev:web           # web on :3000
 Set `NEXT_PUBLIC_GAME_WS_URL` and `NEXT_PUBLIC_API_URL` (see `web/.env.example`) if the
 game server is not on localhost:4000.
 
+## Preview without Node
+
+`npm run preview -w web` builds `web/preview/dist/preview.html`: one self-contained page with
+the real pages and the game server running inside the browser (sample competition data,
+accounts kept in localStorage). Only for showing the site; not used in production.
+
 ## Checks
 
 ```bash

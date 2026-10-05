@@ -15,7 +15,14 @@ Product spec (Mongolian): https://claude.ai/code/artifact/ff93ef08-c8c2-4d56-9c1
 - Same template sequence for everyone, random numbers per run.
 - Problems are drawn on a canvas, not as page text.
 
-Not built yet: accounts, competitions, wallet, leaderboard data, admin.
+- Home page competition card: status (live / upcoming / finished), how many of the 100
+  attempts are used, top 3 players, and an Оролцох button that opens login/register and,
+  once signed in, shows the entry fee.
+- Accounts: email + password, nickname, birth date (18+), terms acceptance; session in an
+  httpOnly cookie. In memory for now.
+
+Not built yet: database, payment, wallet, paid competition runs, admin. Sample competition
+data loads when `DEMO_DATA=1` (on by default outside production).
 
 ## Layout
 
@@ -24,9 +31,13 @@ server/   Fastify + WebSocket game server (TypeScript)
   src/problems.ts   problem templates per level
   src/scoring.ts    scoring formula, answer parsing
   src/session.ts    one player's run: timer, answers, latency credit
-  src/app.ts        HTTP + /ws/practice
+  src/competition.ts  competition status, leaderboard order
+  src/auth.ts       accounts, age/terms rules, sessions
+  src/app.ts        HTTP API + /ws/practice
 web/      Next.js front end
   app/page.tsx            home page
+  app/CompetitionBoard.tsx  competition card on the home page
+  app/AuthDialog.tsx      login / register window
   app/practice/page.tsx   practice game
 ```
 
@@ -38,8 +49,8 @@ npm run dev:server        # game server on :4000
 npm run dev:web           # web on :3000
 ```
 
-Set `NEXT_PUBLIC_GAME_WS_URL` (see `web/.env.example`) if the game server is not on
-`ws://localhost:4000/ws/practice`.
+Set `NEXT_PUBLIC_GAME_WS_URL` and `NEXT_PUBLIC_API_URL` (see `web/.env.example`) if the
+game server is not on localhost:4000.
 
 ## Checks
 

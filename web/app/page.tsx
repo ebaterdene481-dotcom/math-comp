@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CompetitionBoard } from "./CompetitionBoard";
 
 export default function Home() {
   return (
@@ -7,7 +8,6 @@ export default function Home() {
         <Link href="/" className="logo">
           <span>5</span> секунд
         </Link>
-        {/* Бүртгэл, нэвтрэх нь дараагийн үе шатанд нэмэгдэнэ */}
       </header>
 
       <section className="hero">
@@ -38,17 +38,7 @@ export default function Home() {
           </div>
         </div>
 
-        <aside className="board" aria-labelledby="board-title">
-          <h2 id="board-title">Тэргүүлэгчид</h2>
-          <p className="meta">Одоо явагдаж буй тэмцээн</p>
-          <div className="empty">
-            <p>Одоогоор нээлттэй тэмцээн алга.</p>
-            <p className="meta">
-              Тэмцээн нээгдэхэд оролцогчдын хамгийн сайн оноо энд харагдана. Тэр болтол үнэгүй
-              туршилтаар дасгал хий.
-            </p>
-          </div>
-        </aside>
+        <CompetitionBoard />
       </section>
     </main>
   );

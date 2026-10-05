@@ -14,6 +14,7 @@ const out = await build({
   format: "iife",
   jsx: "automatic",
   target: "es2020",
+  loader: { ".svg": "dataurl" },
   alias: { "next/link": join(here, "link-shim.tsx") },
   define: {
     "process.env.NEXT_PUBLIC_API_URL": '"http://preview.local"',

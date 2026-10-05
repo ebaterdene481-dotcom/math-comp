@@ -24,7 +24,7 @@ function ProblemCanvas({ text }: { text: string }) {
       const ctx = canvas.getContext("2d")!;
       ctx.scale(dpr, dpr);
       const styles = getComputedStyle(document.documentElement);
-      const family = styles.getPropertyValue("--font-display").trim() || "sans-serif";
+      const family = styles.getPropertyValue("--numbers").trim() || "sans-serif";
       let size = Math.min(88, height * 0.8);
       ctx.font = `800 ${size}px ${family}`;
       while (ctx.measureText(text).width > width - 16 && size > 24) {
@@ -48,21 +48,34 @@ function ProblemCanvas({ text }: { text: string }) {
 /** Display-only countdown. The server decides when time is up. */
 function TimeBar({ shownAt, limitMs, running }: { shownAt: number; limitMs: number; running: boolean }) {
   const bar = useRef<HTMLElement>(null);
+  const secs = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     let raf = 0;
     const tick = () => {
-      const left = Math.max(0, 1 - (performance.now() - shownAt) / limitMs);
-      if (bar.current) bar.current.style.transform = `scaleX(${left})`;
-      if (running && left > 0) raf = requestAnimationFrame(tick);
+      const leftMs = Math.max(0, limitMs - (performance.now() - shownAt));
+      if (bar.current) bar.current.style.transform = `scaleX(${leftMs / limitMs})`;
+      if (secs.current) {
+        secs.current.textContent = `${(leftMs / 1000).toFixed(1)} сек`;
+        secs.current.classList.toggle("low", leftMs < 1500);
+      }
+      if (running && leftMs > 0) raf = requestAnimationFrame(tick);
     };
     tick();
     return () => cancelAnimationFrame(raf);
   }, [shownAt, limitMs, running]);
   return (
-    <div className="timebar" aria-hidden="true">
-      <i ref={bar} />
+    <div className="timer" aria-hidden="true">
+      <div className="timebar">
+        <i ref={bar} />
+      </div>
+      <span ref={secs} className="time-left" />
     </div>
   );
+}
+
+/** Average time of the correctly solved problems, or null if none yet. */
+function averageMs(times: number[]) {
+  return times.length ? times.reduce((a, b) => a + b, 0) / times.length : null;
 }
 
 export default function Practice() {
@@ -70,6 +83,23 @@ export default function Practice() {
   const [value, setValue] = useState("");
   const [flash, setFlash] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const [solvedTimes, setSolvedTimes] = useState<number[]>([]);
+
+  // A half-typed answer never carries over to the next problem.
+  useEffect(() => {
+    setValue("");
+  }, [game.problem?.index, game.phase]);
+
+  useEffect(() => {
+    if (game.phase === "connecting") setSolvedTimes([]);
+  }, [game.phase]);
+
+  useEffect(() => {
+    const f = game.feedback;
+    if (f?.kind === "correct") setSolvedTimes((t) => [...t, f.elapsedMs]);
+  }, [game.feedback]);
+
+  const liveAvg = averageMs(solvedTimes);
 
   useEffect(() => {
     if (game.phase === "active") input.current?.focus();
@@ -117,8 +147,11 @@ export default function Practice() {
 
         {(game.phase === "connecting" || game.phase === "gap" || game.phase === "active") && (
           <>
-            <div className="progress">
-              {game.problem ? `${game.problem.index + 1} / ${game.problem.total}` : "Бэлдэж байна…"}
+            <div className="progress-row">
+              <div className="progress">
+                {game.problem ? `${game.problem.index + 1} / ${game.problem.total}` : "Бэлдэж байна…"}
+              </div>
+              {liveAvg !== null && <div className="progress">Дундаж: {fmtSeconds(liveAvg)} сек</div>}
             </div>
             <div className="sheet">
               {game.problem ? <ProblemCanvas text={game.problem.text} /> : <div className="problem" />}
@@ -176,6 +209,17 @@ export default function Practice() {
             <div className="total">{fmtPoints(game.result.totalPoints)}</div>
             <p className="total-label">
               2,000 онооноос. {game.result.results.filter((r) => r.solved).length} бодлого зөв.
+              {(() => {
+                const avg = averageMs(
+                  game.result.results.filter((r) => r.solved && r.elapsedMs !== null).map((r) => r.elapsedMs!),
+                );
+                return avg === null ? null : (
+                  <>
+                    <br />
+                    Зөв хариултын дундаж хугацаа: <b>{fmtSeconds(avg)} сек</b>
+                  </>
+                );
+              })()}
             </p>
             <table className="results">
               <thead>

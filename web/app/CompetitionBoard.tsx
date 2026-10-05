@@ -77,13 +77,26 @@ export function CompetitionBoard() {
 
       {c && data.state === "ok" && (
         <>
+          {c.prizeImage && (
+            <figure className="prize">
+              <img src={c.prizeImage} alt={c.prize} />
+              <figcaption>
+                <span>Шагнал</span>
+                {c.prize}
+              </figcaption>
+            </figure>
+          )}
           <div className="board-head">
             <h2 id="board-title">{c.name}</h2>
             <span className={`status status-${c.status}`}>{STATUS_TEXT[c.status]}</span>
           </div>
           <p className="meta">
-            Шагнал: <b>{c.prize}</b>
-            <br />
+            {!c.prizeImage && (
+              <>
+                Шагнал: <b>{c.prize}</b>
+                <br />
+              </>
+            )}
             {c.status === "live" && <>Хаагдах: {fmtWhen(c.closesAt)} эсвэл 100 оролдлого дуусахад</>}
             {c.status === "upcoming" && <>Эхлэх: {fmtWhen(c.opensAt)}</>}
             {c.status === "finished" && <>Тэмцээн хаагдсан</>}

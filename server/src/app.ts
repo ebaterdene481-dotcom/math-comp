@@ -80,6 +80,7 @@ export async function buildApp(opts: AppOptions = {}) {
         closesAt: c.closesAt.toISOString(),
         entryFee: c.entryFee,
         prize: c.prize,
+        prizeImage: c.prizeImage ?? null,
         maxAttempts: c.maxAttempts,
         attemptsUsed: Math.min(c.attemptsUsed, c.maxAttempts),
       },

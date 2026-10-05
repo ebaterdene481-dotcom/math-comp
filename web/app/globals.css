@@ -9,8 +9,105 @@
   --pen-dark: #1a3299;
   --red: #d42a3b;
   --highlight: #ffe14d;
+  --on-highlight: var(--ink);
+  --card: #fff;
+  --line: var(--ink);
+  --bw: 2px;
+  --on-pen: #fff;
+  --pen-tint: rgba(36, 67, 196, 0.08);
+  --focus-ring: rgba(36, 67, 196, 0.25);
+  --red-tint: #fdecee;
+  --backdrop: rgba(24, 38, 74, 0.45);
+  --tick: rgba(24, 38, 74, 0.35);
+  --numbers: var(--font-display);
+  --track: var(--grid);
+  --timefill: var(--highlight);
   --cell: 24px;
   /* --font-body and --font-display come from next/font in layout.tsx */
+}
+
+/* Colour options for Khasar to compare (data-palette on <html>). No attribute = the original pen-and-highlighter look. */
+[data-palette="navy"] {
+  --paper: #f5f6f8;
+  --grid: #eceef2;
+  --ink: #1b2433;
+  --ink-soft: #5b6475;
+  --pen: #1f3c88;
+  --pen-dark: #172e6b;
+  --red: #b42318;
+  --highlight: #e3e9f8;
+  --on-highlight: #1f3c88;
+  --line: #d6dbe4;
+  --bw: 1px;
+  --pen-tint: rgba(31, 60, 136, 0.07);
+  --focus-ring: rgba(31, 60, 136, 0.25);
+  --red-tint: #fbeceb;
+  --backdrop: rgba(27, 36, 51, 0.45);
+  --tick: rgba(27, 36, 51, 0.16);
+  --numbers: var(--font-body);
+  --timefill: var(--pen);
+}
+
+[data-palette="green"] {
+  --paper: #f4f5f0;
+  --grid: #e7eae1;
+  --ink: #1d2a23;
+  --ink-soft: #5d6a62;
+  --pen: #1e6b52;
+  --pen-dark: #15523e;
+  --red: #b3261e;
+  --highlight: #f1dfa0;
+  --on-highlight: #1d2a23;
+  --card: #fffffd;
+  --line: #cdd5c9;
+  --bw: 1px;
+  --pen-tint: rgba(30, 107, 82, 0.08);
+  --focus-ring: rgba(30, 107, 82, 0.25);
+  --red-tint: #fbeceb;
+  --backdrop: rgba(29, 42, 35, 0.45);
+  --tick: rgba(29, 42, 35, 0.16);
+}
+
+[data-palette="mono"] {
+  --paper: #fafafa;
+  --grid: #fafafa;
+  --ink: #121417;
+  --ink-soft: #5f646d;
+  --pen: #121417;
+  --pen-dark: #000;
+  --red: #c0392b;
+  --highlight: #f2c94c;
+  --on-highlight: #121417;
+  --line: #e2e4e8;
+  --bw: 1px;
+  --pen-tint: rgba(18, 20, 23, 0.06);
+  --focus-ring: rgba(18, 20, 23, 0.2);
+  --red-tint: #fbeceb;
+  --backdrop: rgba(18, 20, 23, 0.5);
+  --tick: rgba(18, 20, 23, 0.14);
+  --track: #e9eaed;
+  --numbers: var(--font-body);
+}
+
+[data-palette="night"] {
+  color-scheme: dark;
+  --paper: #0f1626;
+  --grid: #141d31;
+  --ink: #e8edf6;
+  --ink-soft: #9ba8bf;
+  --pen: #4f74f0;
+  --pen-dark: #6a8bff;
+  --red: #ff6b6b;
+  --highlight: #f4c64e;
+  --on-highlight: #0f1626;
+  --card: #172036;
+  --line: #2b3753;
+  --bw: 1px;
+  --pen-tint: rgba(91, 130, 255, 0.14);
+  --focus-ring: rgba(91, 130, 255, 0.35);
+  --red-tint: #3a1d24;
+  --backdrop: rgba(0, 0, 0, 0.6);
+  --tick: rgba(232, 237, 246, 0.16);
 }
 
 * {
@@ -70,8 +167,9 @@ a {
 }
 
 .logo span {
-  font-family: var(--font-display);
+  font-family: var(--numbers);
   background: var(--highlight);
+  color: var(--on-highlight);
   padding: 0 6px;
 }
 
@@ -82,10 +180,10 @@ a {
   min-height: 52px;
   padding: 12px 28px;
   text-align: center;
-  border: 2px solid var(--pen);
+  border: var(--bw) solid var(--pen);
   border-radius: 6px;
   background: var(--pen);
-  color: #fff;
+  color: var(--on-pen);
   font: 600 18px/1.2 var(--font-body);
   text-decoration: none;
   cursor: pointer;
@@ -102,7 +200,7 @@ a {
 }
 
 .btn-quiet:hover {
-  background: rgba(36, 67, 196, 0.08);
+  background: var(--pen-tint);
   color: var(--pen-dark);
 }
 
@@ -159,10 +257,11 @@ a {
 }
 
 .board {
-  background: #fff;
-  border: 2px solid var(--ink);
+  background: var(--card);
+  border: var(--bw) solid var(--line);
   border-radius: 6px;
   padding: 24px;
+  overflow: hidden;
 }
 
 .board h2 {
@@ -185,6 +284,45 @@ a {
 
 .board .empty p {
   margin: 0 0 6px;
+}
+
+/* The prize photo runs edge to edge across the top of the card. */
+.prize {
+  position: relative;
+  margin: -24px -24px 20px;
+  border-bottom: var(--bw) solid var(--line);
+  background: var(--paper);
+}
+
+.prize img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.prize figcaption {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: grid;
+  padding: 6px 12px;
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.prize figcaption span {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.board-head h2 {
+  line-height: 1.25;
 }
 
 .board-head {
@@ -245,7 +383,7 @@ a {
 .slots-bar {
   position: relative;
   height: 22px;
-  border: 2px solid var(--ink);
+  border: var(--bw) solid var(--line);
   border-radius: 4px;
   overflow: hidden;
   background: var(--paper);
@@ -264,7 +402,7 @@ a {
   background: repeating-linear-gradient(
     90deg,
     transparent 0 calc(10% - 2px),
-    rgba(24, 38, 74, 0.35) calc(10% - 2px) 10%
+    var(--tick) calc(10% - 2px) 10%
   );
   pointer-events: none;
 }
@@ -278,7 +416,7 @@ a {
 }
 
 .slots-legend b {
-  font-family: var(--font-display);
+  font-family: var(--numbers);
   font-weight: 700;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -286,6 +424,7 @@ a {
 
 .slots-legend span:last-child b {
   background: var(--highlight);
+  color: var(--on-highlight);
   padding: 0 4px;
 }
 
@@ -311,7 +450,7 @@ a {
 }
 
 .leaders .rank {
-  font-family: var(--font-display);
+  font-family: var(--numbers);
   font-weight: 700;
   font-size: 15px;
   text-align: center;
@@ -319,7 +458,7 @@ a {
 }
 
 .leaders .first .rank {
-  color: var(--ink);
+  color: var(--on-highlight);
   background: var(--highlight);
   border-radius: 3px;
 }
@@ -330,7 +469,7 @@ a {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  color: #fff;
+  color: var(--on-pen);
   font-weight: 800;
   font-size: 16px;
 }
@@ -343,7 +482,7 @@ a {
 }
 
 .leaders .pts {
-  font-family: var(--font-display);
+  font-family: var(--numbers);
   font-weight: 700;
   font-size: 16px;
   font-variant-numeric: tabular-nums;
@@ -368,7 +507,7 @@ a {
 }
 
 .join .fee {
-  font-family: var(--font-display);
+  font-family: var(--numbers);
   font-weight: 700;
   margin-left: 0.4em;
 }
@@ -404,14 +543,14 @@ a {
   width: min(440px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   padding: 0;
-  border: 2px solid var(--ink);
+  border: var(--bw) solid var(--line);
   border-radius: 6px;
   color: var(--ink);
-  background: #fff;
+  background: var(--card);
 }
 
 .auth::backdrop {
-  background: rgba(24, 38, 74, 0.45);
+  background: var(--backdrop);
 }
 
 .auth-inner {
@@ -442,7 +581,7 @@ a {
 .auth-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border: 2px solid var(--ink);
+  border: var(--bw) solid var(--line);
   border-radius: 6px;
   overflow: hidden;
   margin-bottom: 20px;
@@ -451,15 +590,15 @@ a {
 .auth-tabs button {
   padding: 10px;
   border: 0;
-  background: #fff;
+  background: var(--card);
   font: 600 15px/1.2 var(--font-body);
   color: var(--ink);
   cursor: pointer;
 }
 
 .auth-tabs button[aria-selected="true"] {
-  background: var(--ink);
-  color: #fff;
+  background: var(--pen);
+  color: var(--on-pen);
 }
 
 .auth form {
@@ -477,7 +616,7 @@ a {
 .auth input:not([type="checkbox"]) {
   height: 46px;
   padding: 0 12px;
-  border: 2px solid var(--ink);
+  border: var(--bw) solid var(--line);
   border-radius: 6px;
   font: 400 16px var(--font-body);
   color: var(--ink);
@@ -487,7 +626,7 @@ a {
 .auth input:focus {
   outline: none;
   border-color: var(--pen);
-  box-shadow: 0 0 0 3px rgba(36, 67, 196, 0.25);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .auth small {
@@ -514,7 +653,7 @@ a {
   margin: 0;
   padding: 10px 12px;
   border-left: 4px solid var(--red);
-  background: #fdecee;
+  background: var(--red-tint);
   color: var(--red);
   font-size: 15px;
 }
@@ -546,8 +685,20 @@ a {
   text-align: center;
 }
 
+.progress-row {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.progress-row .progress {
+  margin-bottom: 0;
+}
+
 .progress {
-  font-family: var(--font-display);
+  font-family: var(--numbers);
   font-weight: 500;
   font-size: 16px;
   color: var(--ink-soft);
@@ -558,8 +709,8 @@ a {
 .sheet {
   width: 100%;
   max-width: 640px;
-  background: #fff;
-  border: 2px solid var(--ink);
+  background: var(--card);
+  border: var(--bw) solid var(--line);
   border-radius: 6px;
   padding: 40px 24px 32px;
   position: relative;
@@ -571,11 +722,32 @@ a {
   height: 120px;
 }
 
-.timebar {
-  height: 14px;
-  margin: 24px auto 32px;
+.timer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   max-width: 480px;
-  background: var(--grid);
+  margin: 24px auto 32px;
+}
+
+.time-left {
+  flex: none;
+  min-width: 3.6em;
+  text-align: right;
+  font-family: var(--numbers);
+  font-weight: 700;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.time-left.low {
+  color: var(--red);
+}
+
+.timebar {
+  flex: 1;
+  height: 14px;
+  background: var(--track);
   border-radius: 7px;
   overflow: hidden;
 }
@@ -583,8 +755,8 @@ a {
 .timebar i {
   display: block;
   height: 100%;
-  background: var(--highlight);
-  border-right: 2px solid var(--ink);
+  background: var(--timefill);
+  border-right: var(--bw) solid var(--line);
   transform-origin: left center;
 }
 
@@ -592,10 +764,10 @@ a {
   width: 100%;
   max-width: 260px;
   height: 72px;
-  border: 2px solid var(--ink);
+  border: var(--bw) solid var(--line);
   border-radius: 6px;
   text-align: center;
-  font: 700 40px/1 var(--font-display);
+  font: 700 40px/1 var(--numbers);
   color: var(--pen);
   background: var(--paper);
   font-variant-numeric: tabular-nums;
@@ -604,7 +776,7 @@ a {
 .answer:focus {
   outline: none;
   border-color: var(--pen);
-  box-shadow: 0 0 0 3px rgba(36, 67, 196, 0.25);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .answer.wrong {
@@ -649,7 +821,7 @@ a {
 }
 
 .total {
-  font-family: var(--font-display);
+  font-family: var(--numbers);
   font-weight: 800;
   font-size: clamp(48px, 10vw, 88px);
   line-height: 1;

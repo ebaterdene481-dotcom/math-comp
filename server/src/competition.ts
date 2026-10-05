@@ -12,6 +12,8 @@ export interface Competition {
   /** Whole tugrik. */
   entryFee: number;
   prize: string;
+  /** Photo of the prize shown on the home page (URL). */
+  prizeImage?: string;
   maxAttempts: number;
   /** Paid attempt slots taken so far (all players combined). */
   attemptsUsed: number;

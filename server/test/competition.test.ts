@@ -102,7 +102,7 @@ describe("HTTP API", () => {
     const app = await buildApp({ demo: true, now: () => NOW });
     const res = await app.inject("/api/competitions/current");
     const body = res.json();
-    expect(body.competition).toMatchObject({ status: "live", maxAttempts: 100, attemptsUsed: 63, entryFee: 5000 });
+    expect(body.competition).toMatchObject({ status: "live", prizeImage: "/prizes/demo-phone.svg", maxAttempts: 100, attemptsUsed: 63, entryFee: 5000 });
     expect(body.leaders).toHaveLength(3);
     expect(body.leaders[0]).toMatchObject({ rank: 1, nickname: "Тэмүүлэн", points: 914250 });
     await app.close();

@@ -13,6 +13,7 @@ export interface CompetitionInfo {
   closesAt: string;
   entryFee: number;
   prize: string;
+  prizeImage: string | null;
   maxAttempts: number;
   attemptsUsed: number;
 }

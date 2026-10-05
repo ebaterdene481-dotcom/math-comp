@@ -25,6 +25,7 @@ export function seedDemo(auth: AuthStore, now: Date) {
     closesAt: new Date(now.getTime() + 10 * hour),
     entryFee: 5000,
     prize: "Ухаалаг утас",
+    prizeImage: "/prizes/demo-phone.svg",
     maxAttempts: MAX_ATTEMPTS,
     attemptsUsed: 63,
   };

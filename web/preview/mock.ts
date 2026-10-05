@@ -3,6 +3,7 @@
 // accounts and the competition are sample data kept in localStorage.
 
 import { API_URL } from "../app/lib/api";
+import prizeImage from "../public/prizes/demo-phone.svg";
 import { leaderboard, statusOf, type Competition } from "../../server/src/competition";
 import { PRACTICE_PER_LEVEL, generateProblems } from "../../server/src/problems";
 import { GameSession, systemClock, type ClientMessage } from "../../server/src/session";
@@ -16,6 +17,7 @@ const competition: Competition = {
   closesAt: new Date(t0 + 10 * hour),
   entryFee: 5000,
   prize: "Ухаалаг утас",
+  prizeImage,
   maxAttempts: 100,
   attemptsUsed: 63,
 };
@@ -78,6 +80,7 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
         competition: {
           ...competition,
           status: statusOf(competition, new Date()),
+          prizeImage: competition.prizeImage ?? null,
           opensAt: competition.opensAt.toISOString(),
           closesAt: competition.closesAt.toISOString(),
         },

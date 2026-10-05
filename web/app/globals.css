@@ -1,33 +1,6 @@
-/* Squared exercise-book paper, ballpoint ink, a highlighter for time and points,
-   a red pen for mistakes. */
+/* Calm navy on faintly squared paper: an exam sheet, not a game screen.
+   Red is kept for mistakes and the live marker. */
 :root {
-  --paper: #f4f7fb;
-  --grid: #dde6f0;
-  --ink: #18264a;
-  --ink-soft: #5a6785;
-  --pen: #2443c4;
-  --pen-dark: #1a3299;
-  --red: #d42a3b;
-  --highlight: #ffe14d;
-  --on-highlight: var(--ink);
-  --card: #fff;
-  --line: var(--ink);
-  --bw: 2px;
-  --on-pen: #fff;
-  --pen-tint: rgba(36, 67, 196, 0.08);
-  --focus-ring: rgba(36, 67, 196, 0.25);
-  --red-tint: #fdecee;
-  --backdrop: rgba(24, 38, 74, 0.45);
-  --tick: rgba(24, 38, 74, 0.35);
-  --numbers: var(--font-display);
-  --track: var(--grid);
-  --timefill: var(--highlight);
-  --cell: 24px;
-  /* --font-body and --font-display come from next/font in layout.tsx */
-}
-
-/* Colour options for Khasar to compare (data-palette on <html>). No attribute = the original pen-and-highlighter look. */
-[data-palette="navy"] {
   --paper: #f5f6f8;
   --grid: #eceef2;
   --ink: #1b2433;
@@ -37,59 +10,107 @@
   --red: #b42318;
   --highlight: #e3e9f8;
   --on-highlight: #1f3c88;
+  --card: #fff;
   --line: #d6dbe4;
   --bw: 1px;
+  --on-pen: #fff;
   --pen-tint: rgba(31, 60, 136, 0.07);
   --focus-ring: rgba(31, 60, 136, 0.25);
   --red-tint: #fbeceb;
   --backdrop: rgba(27, 36, 51, 0.45);
   --tick: rgba(27, 36, 51, 0.16);
   --numbers: var(--font-body);
+  --track: var(--grid);
   --timefill: var(--pen);
+  --cell: 24px;
+  --radius: 6px;
+  --shadow: none;
+  --font-heading: var(--font-body);
+  --heading-weight: 900;
+  --heading-tracking: -0.035em;
+  --paper-pattern: linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  --paper-pattern-size: var(--cell) var(--cell);
+  --paper-pattern-repeat: repeat;
+  /* --font-body comes from next/font in layout.tsx */
 }
 
-[data-palette="green"] {
-  --paper: #f4f5f0;
-  --grid: #e7eae1;
-  --ink: #1d2a23;
-  --ink-soft: #5d6a62;
-  --pen: #1e6b52;
-  --pen-dark: #15523e;
-  --red: #b3261e;
-  --highlight: #f1dfa0;
-  --on-highlight: #1d2a23;
-  --card: #fffffd;
-  --line: #cdd5c9;
+/* Design directions for Khasar to compare in the preview (data-design on <html>).
+   No attribute = calm navy. */
+[data-design="pen"] {
+  --paper: #f4f7fb;
+  --grid: #dde6f0;
+  --ink: #18264a;
+  --ink-soft: #5a6785;
+  --pen: #2443c4;
+  --pen-dark: #1a3299;
+  --red: #d42a3b;
+  --highlight: #ffe14d;
+  --on-highlight: #18264a;
+  --line: #18264a;
+  --bw: 2px;
+  --pen-tint: rgba(36, 67, 196, 0.08);
+  --focus-ring: rgba(36, 67, 196, 0.25);
+  --tick: rgba(24, 38, 74, 0.35);
+  --timefill: var(--highlight);
+  --numbers: "Unbounded", var(--font-body);
+}
+
+/* Mongolian ornament: deep blue and gold, a key-pattern band along the top, serif headings. */
+[data-design="heritage"] {
+  --paper: #fbfaf7;
+  --ink: #16243a;
+  --ink-soft: #5c6577;
+  --pen: #12355b;
+  --pen-dark: #0b2540;
+  --red: #a3242a;
+  --highlight: #f3e6c4;
+  --on-highlight: #6b4e12;
+  --line: #d9d3c4;
   --bw: 1px;
-  --pen-tint: rgba(30, 107, 82, 0.08);
-  --focus-ring: rgba(30, 107, 82, 0.25);
-  --red-tint: #fbeceb;
-  --backdrop: rgba(29, 42, 35, 0.45);
-  --tick: rgba(29, 42, 35, 0.16);
+  --radius: 4px;
+  --pen-tint: rgba(18, 53, 91, 0.07);
+  --focus-ring: rgba(18, 53, 91, 0.25);
+  --tick: rgba(22, 36, 58, 0.16);
+  --track: #efeadf;
+  --timefill: #c8962e;
+  --font-heading: "PT Serif", Georgia, serif;
+  --heading-weight: 700;
+  --heading-tracking: -0.01em;
+  --numbers: "PT Serif", Georgia, serif;
+  --paper-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M0 22H6V6H22V18H12V12H16' fill='none' stroke='%23c8962e' stroke-width='2.2' stroke-linecap='square'/%3E%3Cpath d='M16 12V22H28' fill='none' stroke='%23c8962e' stroke-width='2.2' stroke-linecap='square'/%3E%3C/svg%3E");
+  --paper-pattern-size: 28px 28px;
+  --paper-pattern-repeat: repeat-x;
 }
 
-[data-palette="mono"] {
-  --paper: #fafafa;
-  --grid: #fafafa;
-  --ink: #121417;
-  --ink-soft: #5f646d;
-  --pen: #121417;
-  --pen-dark: #000;
-  --red: #c0392b;
-  --highlight: #f2c94c;
-  --on-highlight: #121417;
-  --line: #e2e4e8;
+/* Modern app: soft grey ground, white rounded cards with a light shadow, orange actions. */
+[data-design="app"] {
+  --paper: #f2f4f7;
+  --ink: #101828;
+  --ink-soft: #667085;
+  --pen: #ea580c;
+  --pen-dark: #c2410c;
+  --red: #d92d20;
+  --highlight: #ffedd5;
+  --on-highlight: #9a3412;
+  --line: #e4e7ec;
   --bw: 1px;
-  --pen-tint: rgba(18, 20, 23, 0.06);
-  --focus-ring: rgba(18, 20, 23, 0.2);
-  --red-tint: #fbeceb;
-  --backdrop: rgba(18, 20, 23, 0.5);
-  --tick: rgba(18, 20, 23, 0.14);
-  --track: #e9eaed;
-  --numbers: var(--font-body);
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 10px 30px rgba(16, 24, 40, 0.07);
+  --pen-tint: rgba(234, 88, 12, 0.08);
+  --focus-ring: rgba(234, 88, 12, 0.25);
+  --tick: rgba(16, 24, 40, 0.12);
+  --track: #eaecf0;
+  --timefill: var(--pen);
+  --font-heading: "Manrope", var(--font-body);
+  --heading-weight: 800;
+  --heading-tracking: -0.03em;
+  --numbers: "Manrope", var(--font-body);
+  --paper-pattern: none;
 }
 
-[data-palette="night"] {
+/* Night: dark navy ground, gold for time and first place. */
+[data-design="night"] {
   color-scheme: dark;
   --paper: #0f1626;
   --grid: #141d31;
@@ -102,12 +123,16 @@
   --on-highlight: #0f1626;
   --card: #172036;
   --line: #2b3753;
-  --bw: 1px;
+  --radius: 12px;
   --pen-tint: rgba(91, 130, 255, 0.14);
   --focus-ring: rgba(91, 130, 255, 0.35);
   --red-tint: #3a1d24;
   --backdrop: rgba(0, 0, 0, 0.6);
   --tick: rgba(232, 237, 246, 0.16);
+  --timefill: var(--highlight);
+  --font-heading: "Manrope", var(--font-body);
+  --heading-weight: 800;
+  --heading-tracking: -0.03em;
 }
 
 * {
@@ -127,10 +152,9 @@ body {
   font-size: 17px;
   line-height: 1.55;
   background-color: var(--paper);
-  background-image:
-    linear-gradient(var(--grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: var(--cell) var(--cell);
+  background-image: var(--paper-pattern);
+  background-size: var(--paper-pattern-size);
+  background-repeat: var(--paper-pattern-repeat);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -181,7 +205,7 @@ a {
   padding: 12px 28px;
   text-align: center;
   border: var(--bw) solid var(--pen);
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--pen);
   color: var(--on-pen);
   font: 600 18px/1.2 var(--font-body);
@@ -215,11 +239,11 @@ a {
 }
 
 .hero h1 {
-  font-family: var(--font-body);
-  font-weight: 900;
+  font-family: var(--font-heading);
+  font-weight: var(--heading-weight);
   font-size: clamp(40px, 6.5vw, 80px);
-  line-height: 1;
-  letter-spacing: -0.035em;
+  line-height: 1.02;
+  letter-spacing: var(--heading-tracking);
   margin: 0 0 24px;
 }
 
@@ -259,13 +283,14 @@ a {
 .board {
   background: var(--card);
   border: var(--bw) solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 24px;
   overflow: hidden;
+  box-shadow: var(--shadow);
 }
 
 .board h2 {
-  font-family: var(--font-body);
+  font-family: var(--font-heading);
   font-weight: 700;
   font-size: 20px;
   margin: 0 0 4px;
@@ -544,7 +569,7 @@ a {
   max-height: calc(100dvh - 32px);
   padding: 0;
   border: var(--bw) solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: var(--ink);
   background: var(--card);
 }
@@ -562,6 +587,7 @@ a {
   margin: 0 0 16px;
   font-size: 24px;
   font-weight: 800;
+  font-family: var(--font-heading);
 }
 
 .auth-close {
@@ -582,7 +608,7 @@ a {
   display: grid;
   grid-template-columns: 1fr 1fr;
   border: var(--bw) solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   overflow: hidden;
   margin-bottom: 20px;
 }
@@ -617,7 +643,7 @@ a {
   height: 46px;
   padding: 0 12px;
   border: var(--bw) solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   font: 400 16px var(--font-body);
   color: var(--ink);
   background: var(--paper);
@@ -711,9 +737,10 @@ a {
   max-width: 640px;
   background: var(--card);
   border: var(--bw) solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 40px 24px 32px;
   position: relative;
+  box-shadow: var(--shadow);
 }
 
 .problem {
@@ -765,7 +792,7 @@ a {
   max-width: 260px;
   height: 72px;
   border: var(--bw) solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   text-align: center;
   font: 700 40px/1 var(--numbers);
   color: var(--pen);
@@ -867,4 +894,8 @@ a {
   .status-live::before {
     animation: none;
   }
+}
+
+[data-design="heritage"] body {
+  padding-top: 20px;
 }

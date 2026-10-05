@@ -6,7 +6,7 @@ import { createRoot } from "react-dom/client";
 import Home from "../app/page";
 import Practice from "../app/practice/page";
 import { installMockServer } from "./mock";
-import { PICKER_CSS, PalettePicker } from "./PalettePicker";
+import { DesignPicker, PICKER_CSS } from "./DesignPicker";
 
 installMockServer();
 
@@ -24,7 +24,7 @@ function App() {
     <>
       <style>{PICKER_CSS}</style>
       {route === "practice" ? <Practice /> : <Home />}
-      <PalettePicker />
+      <DesignPicker />
     </>
   );
 }

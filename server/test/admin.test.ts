@@ -152,10 +152,10 @@ describe("competition edits after payment", () => {
       closesAt: new Date(now.getTime() + 3600_000).toISOString(),
     });
     expect(s.publicCompetition(c)).toMatchObject({ prizeShare: 60, prizeFund: 0 });
-    s.demoTopUp("u", 15000);
-    s.enter("u", c.id);
-    s.enter("u", c.id);
-    s.enter("u", c.id);
+    for (const u of ["u1", "u2", "u3"]) {
+      s.demoTopUp(u, 5000);
+      s.enter(u, c.id);
+    }
     expect(s.publicCompetition(c).prizeFund).toBe(9000);
     expect(() => s.updateCompetition(c.id, { prizeShare: 80 })).toThrow(/хувь/);
   });

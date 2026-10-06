@@ -44,13 +44,11 @@ describe("wallet and entries", () => {
     ]);
   });
 
-  it("lets a player hold several paid entries at once", () => {
+  it("allows one open entry at a time", () => {
     const { svc } = setup();
     svc.demoTopUp("a", 20000);
     svc.enter("a", "c1");
-    svc.enter("a", "c1");
-    expect(svc.openEntries("a")).toHaveLength(2);
-    expect(svc.balance("a")).toBe(10000);
+    expect(() => svc.enter("a", "c1")).toThrow(expect.objectContaining({ code: "open_entry" }));
   });
 
   it("closes when the 100th attempt is sold", () => {

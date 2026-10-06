@@ -17,9 +17,8 @@ import {
 } from "./lib/api";
 
 /**
- * The button that gets a player into the competition: sign in, pay the fee, or
- * start / continue an attempt already paid for. A player may buy more attempts while
- * one is waiting, so a live competition keeps the pay button under the start link.
+ * The one button that gets a player into the competition: sign in, pay the fee,
+ * or start / continue an attempt already paid for.
  */
 export function JoinButton({ competition: c, onEntered }: { competition: CompetitionInfo; onEntered?: () => void }) {
   const [user, setUser] = useState<User | null>(null);
@@ -33,9 +32,7 @@ export function JoinButton({ competition: c, onEntered }: { competition: Competi
         .then((r) => {
           setUser(r.user);
           if (!r.user) return setOpenEntry(null);
-          return getOpenEntries().then(
-            (e) => setOpenEntry(e.entries.find((x) => x.status === "playing") ?? e.entries[0] ?? null),
-          );
+          return getOpenEntries().then((e) => setOpenEntry(e.entries[0] ?? null));
         })
         .catch(() => {}),
     [],
@@ -59,13 +56,9 @@ export function JoinButton({ competition: c, onEntered }: { competition: Competi
           {openEntry.status === "playing" ? "Оролдлогоо үргэлжлүүлэх" : "Оролдлогоо эхлүүлэх"}
         </Link>
       )}
-      {c.status === "live" && user && (
-        <button
-          className={openEntry ? "btn btn-quiet join-extra" : "btn"}
-          type="button"
-          onClick={() => setEnterOpen(true)}
-        >
-          {openEntry ? "Дахин оролцох" : "Оролцох"}: <span className="fee">{groupDigits(c.entryFee)}₮</span>
+      {c.status === "live" && user && !openEntry && (
+        <button className="btn" type="button" onClick={() => setEnterOpen(true)}>
+          Оролцох: <span className="fee">{groupDigits(c.entryFee)}₮</span>
         </button>
       )}
       {c.status === "upcoming" && (
@@ -79,7 +72,7 @@ export function JoinButton({ competition: c, onEntered }: { competition: Competi
         open={enterOpen}
         onClose={() => setEnterOpen(false)}
         onEntered={(e) => {
-          setOpenEntry((cur) => cur ?? e);
+          setOpenEntry(e);
           onEntered?.();
         }}
       />

@@ -439,16 +439,6 @@ a {
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* A second paid attempt sits under the start and details buttons. */
-.join-row > .btn.join-extra {
-  grid-column: 1 / -1;
-  order: 1;
-}
-
-.join .join-extra {
-  margin-top: 8px;
-}
-
 .join-row .fee {
   margin-left: 0.3em;
 }

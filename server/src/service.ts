@@ -155,6 +155,8 @@ export class CompetitionService {
     if (status === "upcoming") throw new ServiceError("not_open", "Тэмцээн хараахан эхлээгүй байна.");
     if (status === "finished") throw new ServiceError("closed", "Тэмцээн хаагдсан байна.");
     this.expireStale();
+    if (this.entries.some((e) => e.userId === userId && (e.status === "paid" || e.status === "playing")))
+      throw new ServiceError("open_entry", "Эхлээгүй эсвэл дуусаагүй оролдлого байна. Эхлээд түүнийгээ бодоорой.");
     const balance = this.balance(userId);
     if (balance < c.entryFee)
       throw new ServiceError("insufficient_funds", "Хэтэвчинд мөнгө хүрэлцэхгүй байна.", {

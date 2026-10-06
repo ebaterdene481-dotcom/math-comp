@@ -107,11 +107,7 @@ function CompetitionView({
   standings: Standing[];
   reload: () => void;
 }) {
-  const left = Math.max(0, c.maxAttempts - c.attemptsUsed);
   const best = standings[0]?.points ?? null;
-  const average = standings.length
-    ? Math.round(standings.reduce((a, s) => a + s.points, 0) / standings.length)
-    : null;
   const me = standings.find((s) => s.you);
 
   return (
@@ -167,23 +163,16 @@ function CompetitionView({
           </article>
           <dl className="tiles comp-tiles">
             <div>
+              <dt>Таны байр</dt>
+              <dd>{me ? me.rank : "–"}</dd>
+            </div>
+            <div>
               <dt>Нийт оролцогчид</dt>
               <dd>{standings.length}</dd>
             </div>
             <div>
-              <dt>Үлдсэн оролдлого</dt>
-              <dd>
-                {left}
-                <small>/{c.maxAttempts}</small>
-              </dd>
-            </div>
-            <div>
               <dt>Тэргүүлэгчийн оноо</dt>
               <dd>{best === null ? "–" : fmtPoints(best)}</dd>
-            </div>
-            <div>
-              <dt>Дундаж оноо</dt>
-              <dd>{average === null ? "–" : fmtPoints(average)}</dd>
             </div>
           </dl>
         </div>

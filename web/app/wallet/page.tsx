@@ -1,9 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { SiteHeader } from "../SiteHeader";
-import { AUTH_EVENT, ApiError, type Wallet, demoTopUp, getWallet, groupDigits } from "../lib/api";
+import {
+  AUTH_EVENT,
+  ApiError,
+  type Wallet,
+  type Withdrawal,
+  demoTopUp,
+  getWallet,
+  groupDigits,
+  requestWithdrawal,
+} from "../lib/api";
 
 const KIND = { topup: "Цэнэглэлт", entry: "Тэмцээний хураамж", prize: "Шагнал", withdraw: "Мөнгө татсан", refund: "Буцаалт" } as const;
 
@@ -62,7 +71,7 @@ export default function WalletPage() {
           </div>
         )}
         {state.kind === "ok" && (
-          <div className="profile-grid">
+          <div className="profile-grid wallet-grid">
             <div className="profile-card wallet wallet-main">
               <span className="stat-label">Хэтэвчний үлдэгдэл</span>
               <span className="wallet-balance">{groupDigits(state.w.balance)}₮</span>
@@ -87,14 +96,14 @@ export default function WalletPage() {
               ) : (
                 <p className="meta">Төлбөрийн систем холбогдсоны дараа цэнэглэх боломжтой болно.</p>
               )}
-              <h2 className="withdraw-title">Мөнгө татах</h2>
-              <p className="meta">Шагналын мөнгийг банкны данс руугаа татах хэсэг төлбөрийн системтэй хамт нээгдэнэ.</p>
               {note && (
                 <p className="topup-note" role="status">
                   {note}
                 </p>
               )}
             </div>
+
+            <Withdraw w={state.w} onDone={load} />
 
             <section className="profile-card history" aria-labelledby="tx-title">
               <h2 id="tx-title">Гүйлгээний түүх</h2>
@@ -130,5 +139,121 @@ export default function WalletPage() {
         )}
       </section>
     </main>
+  );
+}
+
+const W_STATUS = { pending: "Хүлээгдэж буй", paid: "Шилжүүлсэн", rejected: "Татгалзсан" } as const;
+
+/** Taking money out to a bank account. An admin sends it by hand and marks it done. */
+function Withdraw({ w, onDone }: { w: Wallet; onDone: () => void }) {
+  const [amount, setAmount] = useState("");
+  const [bank, setBank] = useState("");
+  const [account, setAccount] = useState("");
+  const [holder, setHolder] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pending = w.withdrawals.find((x) => x.status === "pending");
+  const tooLittle = w.balance < w.minWithdrawal;
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const sum = Number(amount.replace(/\s/g, ""));
+    if (!window.confirm(`${groupDigits(sum)}₮-г ${bank} ${account} данс руу татах уу? Мөнгө хэтэвчнээс одоо хасагдана.`))
+      return;
+    setBusy(true);
+    setError(null);
+    try {
+      await requestWithdrawal({ amount: sum, bank, account, holder });
+      setAmount("");
+      onDone();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Алдаа гарлаа.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="profile-card withdraw" aria-labelledby="withdraw-title">
+      <h2 id="withdraw-title">Мөнгө татах</h2>
+      {pending ? (
+        <p className="withdraw-wait">
+          <b>{groupDigits(pending.amount)}₮</b> {pending.bank} {pending.account} данс руу шилжүүлэхээр хүлээгдэж байна.
+          Админ шилжүүлсний дараа энд «Шилжүүлсэн» гэж харагдана.
+        </p>
+      ) : (
+        <form className="withdraw-form" onSubmit={submit}>
+          <p className="meta">
+            Хамгийн багадаа {groupDigits(w.minWithdrawal)}₮. Мөнгө хүсэлт илгээх үед хэтэвчнээс хасагдаж, админ таны данс руу
+            шилжүүлнэ.
+          </p>
+          {tooLittle ? (
+            <p className="meta">Таны үлдэгдэл {groupDigits(w.minWithdrawal)}₮-өөс бага байна.</p>
+          ) : (
+            <>
+              <label>
+                <span className="field-label">Дүн (₮)</span>
+                <input
+                  inputMode="numeric"
+                  required
+                  value={amount}
+                  placeholder={`${groupDigits(w.minWithdrawal)} – ${groupDigits(w.balance)}`}
+                  onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ""))}
+                />
+              </label>
+              <label>
+                <span className="field-label">Банк</span>
+                <select required value={bank} onChange={(e) => setBank(e.target.value)}>
+                  <option value="" disabled>
+                    Сонгох
+                  </option>
+                  {w.banks.map((b) => (
+                    <option key={b}>{b}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span className="field-label">Дансны дугаар</span>
+                <input
+                  inputMode="numeric"
+                  required
+                  value={account}
+                  autoComplete="off"
+                  onChange={(e) => setAccount(e.target.value)}
+                />
+              </label>
+              <label>
+                <span className="field-label">Данс эзэмшигчийн нэр</span>
+                <input required value={holder} maxLength={80} onChange={(e) => setHolder(e.target.value)} />
+              </label>
+              {error && (
+                <p className="auth-error" role="alert">
+                  {error}
+                </p>
+              )}
+              <button className="btn" type="submit" disabled={busy}>
+                {busy ? "Илгээж байна…" : "Хүсэлт илгээх"}
+              </button>
+            </>
+          )}
+        </form>
+      )}
+      {w.withdrawals.length > 0 && (
+        <ul className="withdraw-list">
+          {w.withdrawals.map((x: Withdrawal) => (
+            <li key={x.id}>
+              <span>
+                <b className="num">{groupDigits(x.amount)}₮</b>
+                <small>
+                  {x.bank} {x.account} · {fmtAt(x.requestedAt)}
+                </small>
+                {x.reason && <small className="withdraw-reason">Шалтгаан: {x.reason}</small>}
+              </span>
+              <span className={`pill-${x.status}`}>{W_STATUS[x.status]}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

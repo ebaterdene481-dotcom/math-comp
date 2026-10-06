@@ -2663,3 +2663,217 @@ a {
   font-size: 13px;
   color: var(--ink-soft);
 }
+
+/* Withdrawals: the player's form and list, the admin's queue */
+.withdraw h2 {
+  margin: 0 0 8px;
+  font-family: var(--font-heading);
+  font-size: 18px;
+}
+
+.withdraw-form {
+  display: grid;
+  gap: 12px;
+}
+
+.withdraw-form .meta,
+.withdraw-wait {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.withdraw-wait b {
+  color: var(--ink);
+}
+
+.withdraw-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.withdraw-form input,
+.withdraw-form select,
+.reject-form input {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--track);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  font: 500 16px var(--font-body);
+}
+
+.withdraw-form input:focus,
+.withdraw-form select:focus,
+.reject-form input:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+
+.withdraw-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.withdraw-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--track);
+}
+
+.withdraw-list li > span:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.withdraw-list small {
+  color: var(--ink-soft);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.withdraw-list .num {
+  font-family: var(--numbers);
+}
+
+.withdraw-reason {
+  color: var(--red) !important;
+}
+
+.pill-pending,
+.pill-paid,
+.pill-rejected {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pill-pending {
+  background: #fff4d6;
+  color: #7a5200;
+}
+
+.pill-paid {
+  background: var(--track);
+  color: var(--ink);
+}
+
+.pill-rejected {
+  background: #fde8e8;
+  color: var(--red);
+}
+
+.admin-hint {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.payout-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.payout-amount {
+  font-family: var(--numbers);
+  font-size: 20px;
+}
+
+.payout-bank {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.payout-bank .num {
+  font-family: var(--numbers);
+  font-weight: 700;
+}
+
+.payout-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.payout-actions .btn {
+  padding: 10px 16px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.reject-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 260px;
+}
+
+.reject-form .link {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+@media (max-width: 640px) {
+  .payout-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .payout-actions > .btn {
+    flex: 1;
+  }
+
+  .reject-form {
+    min-width: 0;
+  }
+}
+
+/* Wallet: balance and history on the left, top-up and withdrawal on the right. */
+.wallet-grid .wallet-main {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.wallet-grid .topup {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.wallet-grid .withdraw {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.wallet-grid .history {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.wallet-grid .profile-foot {
+  grid-row: 3;
+}
+
+@media (max-width: 900px) {
+  .wallet-grid > * {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+  }
+}
+
+/* Four admin tabs don't fit one phone row: two rows of two. */
+@media (max-width: 560px) {
+  .admin-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-radius: 22px;
+    overflow: visible;
+  }
+}

@@ -9,7 +9,7 @@ import { PRACTICE_PER_LEVEL, generateProblems } from "./problems.js";
 import { AuthError, AuthStore, toPublic } from "./auth.js";
 import type { Database } from "./db.js";
 import { seedDemo } from "./demo.js";
-import { CompetitionService, ServiceError } from "./service.js";
+import { BANKS, CompetitionService, MIN_WITHDRAWAL, ServiceError } from "./service.js";
 import { COUNTDOWN_MS, GameSession, type ClientMessage, type Clock, systemClock } from "./session.js";
 
 /** Practice runs one IP may start per hour (protects the server, not the score). */
@@ -173,8 +173,24 @@ export async function buildApp(opts: AppOptions = {}) {
   app.get("/api/wallet", async (req, reply) => {
     const user = requireUser(req, reply);
     if (!user) return;
-    return { ...service.wallet(user.id), demoTopUp: Boolean(opts.demo) };
+    return {
+      ...service.wallet(user.id),
+      demoTopUp: Boolean(opts.demo),
+      withdrawals: service.withdrawalsOf(user.id),
+      minWithdrawal: MIN_WITHDRAWAL,
+      banks: BANKS,
+    };
   });
+
+  app.post(
+    "/api/wallet/withdraw",
+    guarded((req, reply) => {
+      const user = requireUser(req, reply);
+      if (!user) return;
+      const w = service.requestWithdrawal(user.id, body(req));
+      return { withdrawal: service.publicWithdrawal(w), balance: service.balance(user.id) };
+    }),
+  );
 
   app.post(
     "/api/wallet/demo-topup",
@@ -313,6 +329,18 @@ export async function buildApp(opts: AppOptions = {}) {
       const award = service.awardPrize((req.params as { id: string }).id, Number(body(req).cash ?? 0));
       return { award: { ...award, userId: undefined, at: award.at.toISOString() } };
     }),
+  );
+
+  app.get("/api/admin/withdrawals", admin(() => ({ withdrawals: service.adminWithdrawals() })));
+  app.post(
+    "/api/admin/withdrawals/:id/paid",
+    admin((req) => ({ withdrawal: service.publicWithdrawal(service.markWithdrawalPaid((req.params as { id: string }).id)) })),
+  );
+  app.post(
+    "/api/admin/withdrawals/:id/reject",
+    admin((req) => ({
+      withdrawal: service.publicWithdrawal(service.rejectWithdrawal((req.params as { id: string }).id, body(req).reason)),
+    })),
   );
 
   // Prize pictures: PNG, JPEG or WebP sent as a data URL, checked by their first bytes.

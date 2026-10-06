@@ -40,6 +40,45 @@ export interface WalletTx {
   note: string;
 }
 
+/** Smallest amount a player may take out of the wallet. */
+export const MIN_WITHDRAWAL = 10_000;
+
+export type WithdrawalStatus = "pending" | "paid" | "rejected";
+
+/**
+ * A request to send wallet money to the player's bank account. The money leaves the
+ * wallet when asked for; an admin transfers it by hand and marks it paid, or rejects
+ * it and the money goes back.
+ */
+export interface Withdrawal {
+  id: string;
+  userId: string;
+  amount: number;
+  bank: string;
+  account: string;
+  holder: string;
+  status: WithdrawalStatus;
+  requestedAt: Date;
+  decidedAt?: Date;
+  /** Why it was rejected, shown to the player. */
+  reason?: string;
+}
+
+export const BANKS = [
+  "Хаан банк",
+  "Голомт банк",
+  "Худалдаа хөгжлийн банк",
+  "Төрийн банк",
+  "Хас банк",
+  "Капитрон банк",
+  "Богд банк",
+  "М банк",
+  "Ариг банк",
+  "Тээвэр хөгжлийн банк",
+  "Үндэсний хөрөнгө оруулалтын банк",
+  "Чингис хаан банк",
+] as const;
+
 export class ServiceError extends Error {
   constructor(
     readonly code: string,
@@ -62,6 +101,7 @@ export interface ServicePersist {
   entry(e: Entry): void;
   result(r: AttemptResult): void;
   tx(t: WalletTx): void;
+  withdrawal(w: Withdrawal): void;
 }
 
 const IN_MEMORY: ServicePersist = {
@@ -70,6 +110,7 @@ const IN_MEMORY: ServicePersist = {
   entry() {},
   result() {},
   tx() {},
+  withdrawal() {},
 };
 
 export class CompetitionService {
@@ -77,6 +118,7 @@ export class CompetitionService {
   readonly results: AttemptResult[] = [];
   readonly entries: Entry[] = [];
   readonly txs: WalletTx[] = [];
+  readonly withdrawals: Withdrawal[] = [];
 
   constructor(
     private readonly now: () => Date,
@@ -85,7 +127,14 @@ export class CompetitionService {
   ) {}
 
   /** Puts back what the database holds, on start-up. */
-  load(data: { competitions: Competition[]; results: AttemptResult[]; entries: Entry[]; txs: WalletTx[] }) {
+  load(data: {
+    competitions: Competition[];
+    results: AttemptResult[];
+    entries: Entry[];
+    txs: WalletTx[];
+    withdrawals?: Withdrawal[];
+  }) {
+    this.withdrawals.push(...(data.withdrawals ?? []));
     this.competitions.push(...data.competitions);
     this.results.push(...data.results);
     this.entries.push(...data.entries);
@@ -98,6 +147,7 @@ export class CompetitionService {
     for (const r of this.results) this.persist.result(r);
     for (const e of this.entries) this.persist.entry(e);
     for (const t of this.txs) this.persist.tx(t);
+    for (const w of this.withdrawals) this.persist.withdrawal(w);
   }
 
   /**
@@ -148,6 +198,95 @@ export class CompetitionService {
     if (!Number.isInteger(amount) || amount <= 0 || amount > 100_000)
       throw new ServiceError("amount_invalid", "Дүн буруу байна.");
     this.addTx({ userId, kind: "topup", amount, note: "Туршилтын цэнэглэлт" });
+  }
+
+  // Withdrawals
+
+  /** Takes the money out of the wallet now and queues the request for an admin. */
+  requestWithdrawal(userId: string, raw: Record<string, unknown>) {
+    const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+    const amount = Number(raw.amount);
+    const bank = text(raw.bank, 60);
+    const account = text(raw.account, 34).replace(/\s+/g, "").toUpperCase();
+    const holder = text(raw.holder, 80);
+    if (!Number.isInteger(amount) || amount < MIN_WITHDRAWAL)
+      throw new ServiceError("amount_small", `Хамгийн багадаа ${MIN_WITHDRAWAL.toLocaleString("en").replace(/,/g, " ")}₮ татна.`);
+    if (!(BANKS as readonly string[]).includes(bank)) throw new ServiceError("bank_invalid", "Банкаа сонгоно уу.");
+    if (!/^[0-9]{6,20}$|^MN[0-9]{18}$/.test(account))
+      throw new ServiceError("account_invalid", "Дансны дугаар буруу байна.");
+    if (holder.length < 2) throw new ServiceError("holder_invalid", "Данс эзэмшигчийн нэрийг бичнэ үү.");
+    if (this.withdrawals.some((w) => w.userId === userId && w.status === "pending"))
+      throw new ServiceError("pending_withdrawal", "Өмнөх хүсэлт тань шийдвэрлэгдээгүй байна.");
+    const balance = this.balance(userId);
+    if (amount > balance)
+      throw new ServiceError("insufficient_funds", "Хэтэвчинд мөнгө хүрэлцэхгүй байна.", { balance, need: amount - balance });
+    const w: Withdrawal = { id: newId(), userId, amount, bank, account, holder, status: "pending", requestedAt: this.now() };
+    this.withdrawals.push(w);
+    this.addTx({ userId, kind: "withdraw", amount: -amount, note: `${bank} ${account}` });
+    this.persist.withdrawal(w);
+    return w;
+  }
+
+  /** An admin sent the money by bank transfer. */
+  markWithdrawalPaid(id: string) {
+    const w = this.pendingWithdrawal(id);
+    w.status = "paid";
+    w.decidedAt = this.now();
+    this.persist.withdrawal(w);
+    return w;
+  }
+
+  /** An admin turned the request down; the money goes back to the wallet. */
+  rejectWithdrawal(id: string, reasonRaw: unknown) {
+    const reason = typeof reasonRaw === "string" ? reasonRaw.trim().slice(0, 200) : "";
+    if (!reason) throw new ServiceError("reason_required", "Татгалзсан шалтгаанаа бичнэ үү.");
+    const w = this.pendingWithdrawal(id);
+    w.status = "rejected";
+    w.decidedAt = this.now();
+    w.reason = reason;
+    this.addTx({ userId: w.userId, kind: "refund", amount: w.amount, note: `Мөнгө татах хүсэлт буцаагдсан: ${reason}` });
+    this.persist.withdrawal(w);
+    return w;
+  }
+
+  private pendingWithdrawal(id: string) {
+    const w = this.withdrawals.find((x) => x.id === id);
+    if (!w) throw new ServiceError("not_found", "Хүсэлт олдсонгүй.");
+    if (w.status !== "pending") throw new ServiceError("decided", "Энэ хүсэлт аль хэдийн шийдвэрлэгдсэн.");
+    return w;
+  }
+
+  publicWithdrawal(w: Withdrawal) {
+    return {
+      id: w.id,
+      amount: w.amount,
+      bank: w.bank,
+      account: w.account,
+      holder: w.holder,
+      status: w.status,
+      requestedAt: w.requestedAt.toISOString(),
+      decidedAt: w.decidedAt?.toISOString() ?? null,
+      reason: w.reason ?? null,
+    };
+  }
+
+  /** The player's own requests, newest first. */
+  withdrawalsOf(userId: string) {
+    return this.withdrawals
+      .filter((w) => w.userId === userId)
+      .sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime())
+      .map((w) => this.publicWithdrawal(w));
+  }
+
+  /** Every request for the admin: waiting ones first (oldest first), then the rest newest first. */
+  adminWithdrawals() {
+    const pending = this.withdrawals.filter((w) => w.status === "pending").sort((a, b) => +a.requestedAt - +b.requestedAt);
+    const done = this.withdrawals.filter((w) => w.status !== "pending").sort((a, b) => +b.requestedAt - +a.requestedAt);
+    return [...pending, ...done].map((w) => ({
+      ...this.publicWithdrawal(w),
+      nickname: this.nicknameOf(w.userId) ?? "?",
+      balance: this.balance(w.userId),
+    }));
   }
 
   // Competitions
@@ -482,6 +621,7 @@ export class CompetitionService {
         attempts: entriesToday.length,
         fees: -entriesToday.reduce((sum, t) => sum + t.amount, 0),
       },
+      pendingWithdrawals: this.withdrawals.filter((w) => w.status === "pending").length,
       awaitingAward: this.competitions.filter(
         (c) => statusOf(c, this.now()) === "finished" && !c.award && this.standings(c.id).length > 0,
       ).length,

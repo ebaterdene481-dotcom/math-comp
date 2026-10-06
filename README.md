@@ -24,7 +24,8 @@ Product spec (Mongolian): https://claude.ai/code/artifact/ff93ef08-c8c2-4d56-9c1
   if the browser disconnects; rejoining picks up the current problem with the time left
   and the running totals. The result shows the player's real rank.
 - Wallet page: balance, transactions, and test top-ups in demo mode (no payment provider yet).
-- Full leaderboard page: every player's best attempt, the signed-in player highlighted.
+- Competition page (/competition): prize, fee, times, attempts left, rules, totals, the
+  player's own place and the gap to the next one up, and the current leaders table.
 - Profile page: account details, wallet balance, competitions played with best score and
   rank. Sign in from the header on every page.
 - Accounts: email + password, nickname, birth date (18+), terms acceptance; session in an
@@ -53,7 +54,7 @@ web/      Next.js front end
   app/profile/page.tsx    player profile
   app/wallet/page.tsx     wallet balance and transactions
   app/play/page.tsx       paid 100-problem run
-  app/leaderboard/page.tsx  full standings
+  app/competition/page.tsx  competition details, rules and current leaders
   app/practice/page.tsx   practice game
   app/game/               game screen, socket hook and results shared by practice and play
 ```

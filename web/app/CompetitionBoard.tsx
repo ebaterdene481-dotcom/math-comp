@@ -2,19 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AuthDialog } from "./AuthDialog";
-import { EnterDialog } from "./EnterDialog";
+import { JoinButton } from "./JoinButton";
 import {
   type CompetitionInfo,
-  type Entry,
   type Leader,
   type User,
   fmtPoints,
   fmtWhen,
   getCurrentCompetition,
   getMe,
-  getOpenEntries,
-  groupDigits,
   logout,
   AUTH_EVENT,
   announceAuthChange,
@@ -24,13 +20,13 @@ const REFRESH_MS = 15_000;
 
 const AVATAR_COLORS = ["#2443c4", "#d42a3b", "#1f8a5b", "#7a3fc0", "#d9731a", "#138a9e"];
 
-function avatarColor(name: string) {
+export function avatarColor(name: string) {
   let h = 0;
   for (const ch of name) h = (h * 31 + ch.codePointAt(0)!) >>> 0;
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
-const STATUS_TEXT = {
+export const STATUS_TEXT = {
   live: "Явагдаж байна",
   upcoming: "Удахгүй эхэлнэ",
   finished: "Дууссан",
@@ -41,9 +37,6 @@ type Load = { state: "loading" } | { state: "offline" } | { state: "ok"; competi
 export function CompetitionBoard() {
   const [data, setData] = useState<Load>({ state: "loading" });
   const [user, setUser] = useState<User | null>(null);
-  const [authOpen, setAuthOpen] = useState(false);
-  const [enterOpen, setEnterOpen] = useState(false);
-  const [openEntry, setOpenEntry] = useState<Entry | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -58,11 +51,7 @@ export function CompetitionBoard() {
     refresh();
     const loadMe = () =>
       getMe()
-        .then((r) => {
-          setUser(r.user);
-          if (!r.user) return setOpenEntry(null);
-          return getOpenEntries().then((e) => setOpenEntry(e.entries[0] ?? null));
-        })
+        .then((r) => setUser(r.user))
         .catch(() => {});
     loadMe();
     window.addEventListener(AUTH_EVENT, loadMe);
@@ -143,33 +132,14 @@ export function CompetitionBoard() {
           )}
 
           <div className="join">
-            {c.status === "live" && !user && (
-              <button className="btn" type="button" onClick={() => setAuthOpen(true)}>
-                Оролцох
-              </button>
-            )}
-            {user && openEntry && (
-              <Link href="/play" className="btn">
-                {openEntry.status === "playing" ? "Оролдлогоо үргэлжлүүлэх" : "Оролдлогоо эхлүүлэх"}
-              </Link>
-            )}
-            {c.status === "live" && user && !openEntry && (
-              <button className="btn" type="button" onClick={() => setEnterOpen(true)}>
-                Оролцох: <span className="fee">{groupDigits(c.entryFee)}₮</span>
-              </button>
-            )}
-            {c.status === "upcoming" && (
-              <button className="btn" type="button" disabled>
-                {fmtWhen(c.opensAt)}-д эхэлнэ
-              </button>
-            )}
+            <JoinButton competition={c} onEntered={refresh} />
             {c.status === "finished" && data.leaders[0] && (
               <p className="winner">
                 Ялагч: <b>{data.leaders[0].nickname}</b>
               </p>
             )}
-            <Link href="/leaderboard" className="link all-leaders">
-              Бүх тэргүүлэгчид
+            <Link href="/competition" className="link all-leaders">
+              Тэмцээний дэлгэрэнгүй, бүх оролцогчид
             </Link>
             {user && (
               <p className="signed-in">
@@ -180,7 +150,6 @@ export function CompetitionBoard() {
                   onClick={async () => {
                     await logout().catch(() => {});
                     setUser(null);
-                    setOpenEntry(null);
                     announceAuthChange();
                   }}
                 >
@@ -192,31 +161,11 @@ export function CompetitionBoard() {
         </>
       )}
 
-      {c && (
-        <EnterDialog
-          competition={c}
-          open={enterOpen}
-          onClose={() => setEnterOpen(false)}
-          onEntered={(e) => {
-            setOpenEntry(e);
-            refresh();
-          }}
-        />
-      )}
-      <AuthDialog
-        open={authOpen}
-        onClose={() => setAuthOpen(false)}
-        onSignedIn={(u) => {
-          setUser(u);
-          setAuthOpen(false);
-          announceAuthChange();
-        }}
-      />
     </aside>
   );
 }
 
-function Slots({ used, max }: { used: number; max: number }) {
+export function Slots({ used, max }: { used: number; max: number }) {
   const left = Math.max(0, max - used);
   return (
     <div className="slots">

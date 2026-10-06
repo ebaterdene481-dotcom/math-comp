@@ -8,7 +8,7 @@ import Practice from "../app/practice/page";
 import Profile from "../app/profile/page";
 import Wallet from "../app/wallet/page";
 import Play from "../app/play/page";
-import Leaderboard from "../app/leaderboard/page";
+import Competition from "../app/competition/page";
 import { installMockServer } from "./mock";
 
 installMockServer();
@@ -27,7 +27,7 @@ function App() {
   if (route === "profile") return <Profile />;
   if (route === "wallet") return <Wallet />;
   if (route === "play") return <Play />;
-  if (route === "leaderboard") return <Leaderboard />;
+  if (route === "competition" || route === "leaderboard") return <Competition />;
   return <Home />;
 }
 

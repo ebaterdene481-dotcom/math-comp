@@ -172,8 +172,8 @@ export function Results({
               Дахин тоглох
             </button>
           ) : (
-            <Link href="/leaderboard" className="btn">
-              Бүх тэргүүлэгчид
+            <Link href="/competition" className="btn">
+              Тэмцээний хуудас
             </Link>
           )}
           <Link href="/" className="btn btn-quiet">

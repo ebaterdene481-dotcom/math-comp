@@ -1,144 +1,9 @@
-/* Calm navy on faintly squared paper: an exam sheet, not a game screen.
-   Red is kept for mistakes and the live marker. */
+/* Modern minimal: black, white and soft grey, large rounded cards, attempts shown
+   as dots. The intro sits on a dark card with a thin progress line. Red is kept for
+   mistakes and the live marker. */
 :root {
-  --paper: #f5f6f8;
-  --grid: #eceef2;
-  --ink: #1b2433;
-  --ink-soft: #5b6475;
-  --pen: #1f3c88;
-  --pen-dark: #172e6b;
-  --red: #b42318;
-  --highlight: #e3e9f8;
-  --on-highlight: #1f3c88;
-  --card: #fff;
-  --line: #d6dbe4;
-  --bw: 1px;
-  --on-pen: #fff;
-  --pen-tint: rgba(31, 60, 136, 0.07);
-  --focus-ring: rgba(31, 60, 136, 0.25);
-  --red-tint: #fbeceb;
-  --backdrop: rgba(27, 36, 51, 0.45);
-  --tick: rgba(27, 36, 51, 0.16);
-  --numbers: var(--font-body);
-  --track: var(--grid);
-  --timefill: var(--pen);
-  --cell: 24px;
-  --radius: 6px;
-  --shadow: none;
-  --font-heading: var(--font-body);
-  --heading-weight: 900;
-  --heading-tracking: -0.035em;
-  --paper-pattern: linear-gradient(var(--grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  --paper-pattern-size: var(--cell) var(--cell);
-  --paper-pattern-repeat: repeat;
-  /* --font-body comes from next/font in layout.tsx */
-}
-
-/* Design directions for Khasar to compare in the preview (data-design on <html>).
-   No attribute = calm navy. */
-[data-design="pen"] {
-  --paper: #f4f7fb;
-  --grid: #dde6f0;
-  --ink: #18264a;
-  --ink-soft: #5a6785;
-  --pen: #2443c4;
-  --pen-dark: #1a3299;
-  --red: #d42a3b;
-  --highlight: #ffe14d;
-  --on-highlight: #18264a;
-  --line: #18264a;
-  --bw: 2px;
-  --pen-tint: rgba(36, 67, 196, 0.08);
-  --focus-ring: rgba(36, 67, 196, 0.25);
-  --tick: rgba(24, 38, 74, 0.35);
-  --timefill: var(--highlight);
-  --numbers: "Unbounded", var(--font-body);
-}
-
-/* Mongolian ornament: deep blue and gold, a key-pattern band along the top, serif headings. */
-[data-design="heritage"] {
-  --paper: #fbfaf7;
-  --ink: #16243a;
-  --ink-soft: #5c6577;
-  --pen: #12355b;
-  --pen-dark: #0b2540;
-  --red: #a3242a;
-  --highlight: #f3e6c4;
-  --on-highlight: #6b4e12;
-  --line: #d9d3c4;
-  --bw: 1px;
-  --radius: 4px;
-  --pen-tint: rgba(18, 53, 91, 0.07);
-  --focus-ring: rgba(18, 53, 91, 0.25);
-  --tick: rgba(22, 36, 58, 0.16);
-  --track: #efeadf;
-  --timefill: #c8962e;
-  --font-heading: "PT Serif", Georgia, serif;
-  --heading-weight: 700;
-  --heading-tracking: -0.01em;
-  --numbers: "PT Serif", Georgia, serif;
-  --paper-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M0 22H6V6H22V18H12V12H16' fill='none' stroke='%23c8962e' stroke-width='2.2' stroke-linecap='square'/%3E%3Cpath d='M16 12V22H28' fill='none' stroke='%23c8962e' stroke-width='2.2' stroke-linecap='square'/%3E%3C/svg%3E");
-  --paper-pattern-size: 28px 28px;
-  --paper-pattern-repeat: repeat-x;
-}
-
-/* Modern app: soft grey ground, white rounded cards with a light shadow, orange actions. */
-[data-design="app"] {
-  --paper: #f2f4f7;
-  --ink: #101828;
-  --ink-soft: #667085;
-  --pen: #ea580c;
-  --pen-dark: #c2410c;
-  --red: #d92d20;
-  --highlight: #ffedd5;
-  --on-highlight: #9a3412;
-  --line: #e4e7ec;
-  --bw: 1px;
-  --radius: 14px;
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 10px 30px rgba(16, 24, 40, 0.07);
-  --pen-tint: rgba(234, 88, 12, 0.08);
-  --focus-ring: rgba(234, 88, 12, 0.25);
-  --tick: rgba(16, 24, 40, 0.12);
-  --track: #eaecf0;
-  --timefill: var(--pen);
-  --font-heading: "Manrope", var(--font-body);
-  --heading-weight: 800;
-  --heading-tracking: -0.03em;
-  --numbers: "Manrope", var(--font-body);
-  --paper-pattern: none;
-}
-
-/* Night: dark navy ground, gold for time and first place. */
-[data-design="night"] {
-  color-scheme: dark;
-  --paper: #0f1626;
-  --grid: #141d31;
-  --ink: #e8edf6;
-  --ink-soft: #9ba8bf;
-  --pen: #4f74f0;
-  --pen-dark: #6a8bff;
-  --red: #ff6b6b;
-  --highlight: #f4c64e;
-  --on-highlight: #0f1626;
-  --card: #172036;
-  --line: #2b3753;
-  --radius: 12px;
-  --pen-tint: rgba(91, 130, 255, 0.14);
-  --focus-ring: rgba(91, 130, 255, 0.35);
-  --red-tint: #3a1d24;
-  --backdrop: rgba(0, 0, 0, 0.6);
-  --tick: rgba(232, 237, 246, 0.16);
-  --timefill: var(--highlight);
-  --font-heading: "Manrope", var(--font-body);
-  --heading-weight: 800;
-  --heading-tracking: -0.03em;
-}
-
-/* Modern minimal: black, white and soft grey, large rounded cards, attempts as dots.
-   The intro sits on a dark card with a thin progress line. */
-[data-design="minimal"] {
   --paper: #ededee;
+  --grid: #eceef2;
   --ink: #161618;
   --ink-soft: #8b8b90;
   --pen: #161618;
@@ -149,26 +14,29 @@
   --card: #fff;
   --line: #e6e6e8;
   --bw: 1px;
-  --radius: 28px;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 16px 40px rgba(0, 0, 0, 0.06);
+  --on-pen: #fff;
   --pen-tint: rgba(0, 0, 0, 0.05);
   --focus-ring: rgba(0, 0, 0, 0.15);
+  --red-tint: #fbeceb;
+  --backdrop: rgba(27, 36, 51, 0.45);
+  --tick: rgba(27, 36, 51, 0.16);
+  --numbers: var(--font-onest), var(--font-body);
   --track: #ececee;
   --timefill: #161618;
-  --avatar: #161618;
-  --font-heading: "Onest", var(--font-body);
+  --cell: 24px;
+  --radius: 28px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 16px 40px rgba(0, 0, 0, 0.06);
+  --font-heading: var(--font-onest), var(--font-body);
   --heading-weight: 700;
   --heading-tracking: -0.04em;
-  --numbers: "Onest", var(--font-body);
   --paper-pattern: none;
+  --paper-pattern-size: var(--cell) var(--cell);
+  --paper-pattern-repeat: repeat;
+  --avatar: #161618;
+  /* --font-body and --font-onest come from next/font in layout.tsx */
 }
 
-[data-design="minimal"] .board,
-[data-design="minimal"] .sheet {
-  border-color: transparent;
-}
-
-[data-design="minimal"] .hero > div:first-child {
+.hero > div:first-child {
   position: relative;
   padding: 200px 40px 40px;
   border-radius: var(--radius);
@@ -176,51 +44,44 @@
   color: #fff;
 }
 
-[data-design="minimal"] .hero h1 {
+.hero h1 {
   color: #8b8b90;
 }
 
-[data-design="minimal"] .hero h1 .clock {
+.hero h1 .clock {
   color: #fff;
 }
 
-[data-design="minimal"] .hero p,
-[data-design="minimal"] .rules li {
+.hero p,
+.rules li {
   color: #b9b9be;
   border-color: #2e2e31;
 }
 
-[data-design="minimal"] .rules b {
+.rules b {
   color: #fff;
 }
 
-[data-design="minimal"] .hero > div:first-child .btn {
+.hero > div:first-child .btn {
   background: #fff;
   border-color: #fff;
   color: #161618;
 }
 
-[data-design="minimal"] .slots-bar {
-  display: none;
-}
-
-[data-design="minimal"] .slots-dots {
-  display: grid;
-}
-
-[data-design="minimal"] .timebar {
+.timebar {
   height: 6px;
 }
 
-[data-design="minimal"] .status {
+.status {
   border-width: 1px;
 }
 
 @media (max-width: 520px) {
-  [data-design="minimal"] .hero > div:first-child {
+  .hero > div:first-child {
     padding: 140px 24px 28px;
   }
 }
+
 
 * {
   box-sizing: border-box;
@@ -369,7 +230,7 @@ a {
 
 .board {
   background: var(--card);
-  border: var(--bw) solid var(--line);
+  border: 0;
   border-radius: var(--radius);
   padding: 24px;
   overflow: hidden;
@@ -487,40 +348,16 @@ a {
   color: var(--ink);
 }
 
-/* 100 attempt slots as a ruler: a tick every 10. */
+/* 100 attempt slots, one dot each. */
 .slots {
   margin: 0 0 24px;
 }
 
-.slots-bar {
-  position: relative;
-  height: 22px;
-  border: var(--bw) solid var(--line);
-  border-radius: 4px;
-  overflow: hidden;
-  background: var(--paper);
-}
 
-.slots-bar i {
-  display: block;
-  height: 100%;
-  background: var(--pen);
-}
 
-.slots-bar::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    90deg,
-    transparent 0 calc(10% - 2px),
-    var(--tick) calc(10% - 2px) 10%
-  );
-  pointer-events: none;
-}
 
 .slots-dots {
-  display: none;
+  display: grid;
   grid-template-columns: repeat(20, 1fr);
   gap: 5px;
 }
@@ -840,7 +677,7 @@ a {
   width: 100%;
   max-width: 640px;
   background: var(--card);
-  border: var(--bw) solid var(--line);
+  border: 0;
   border-radius: var(--radius);
   padding: 40px 24px 32px;
   position: relative;
@@ -993,13 +830,398 @@ a {
   color: var(--red);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .answer.wrong,
-  .status-live::before {
-    animation: none;
+/* Practice: problem sheet with a live stats panel beside it */
+
+.play-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 640px) 260px;
+  gap: 24px;
+  justify-content: center;
+  align-items: start;
+  width: 100%;
+}
+
+.play-main {
+  min-width: 0;
+}
+
+.play-main .sheet {
+  max-width: none;
+}
+
+.live-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 50px;
+  text-align: left;
+}
+
+.stat {
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.stat-wide {
+  grid-column: 1 / -1;
+  background: var(--ink);
+  color: var(--card);
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.stat-wide .stat-label {
+  color: #b9b9be;
+}
+
+.stat-value {
+  font-family: var(--numbers);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-wide .stat-value {
+  font-size: 32px;
+}
+
+.stat-value small {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.countdown {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 8px 0 16px;
+}
+
+.countdown-num {
+  font-family: var(--numbers);
+  font-weight: 700;
+  font-size: 140px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  animation: tick-in 0.35s ease-out;
+}
+
+.countdown p {
+  margin: 0;
+  max-width: 28em;
+}
+
+@keyframes tick-in {
+  from { transform: scale(1.25); opacity: 0.3; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@media (max-width: 900px) {
+  .play-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .live-stats {
+    margin-top: 0;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .stat {
+    padding: 10px 12px;
+    border-radius: 14px;
+  }
+
+  .stat-value {
+    font-size: 18px;
+  }
+
+  .stat-wide .stat-value {
+    font-size: 24px;
   }
 }
 
-[data-design="heritage"] body {
-  padding-top: 20px;
+/* Practice results */
+
+.results-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 24px;
+  width: 100%;
+  text-align: left;
+}
+
+.results-main,
+.results-side {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
+}
+
+.results-page .sheet {
+  max-width: none;
+  padding: 28px;
+}
+
+.results-head {
+  text-align: center;
+}
+
+.score-meter {
+  height: 8px;
+  max-width: 360px;
+  margin: 12px auto 6px;
+  border-radius: 4px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.score-meter i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--ink);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 8px 0 0;
+}
+
+.tiles div {
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--paper);
+  text-align: left;
+}
+
+.tiles dt {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.tiles dd {
+  margin: 2px 0 0;
+  font-family: var(--numbers);
+  font-weight: 700;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tiles dd small {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.chart-card h2,
+.compare h2 {
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 16px;
+}
+
+.level-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.level-bars li {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 120px;
+  align-items: center;
+  gap: 12px;
+}
+
+.lb-label {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.lb-track {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.lb-track i {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--ink);
+}
+
+.lb-value {
+  text-align: right;
+  font-family: var(--numbers);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-value small {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.time-chart {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.tc-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 140px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-align: right;
+}
+
+.tc-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+}
+
+.tc-bars li {
+  display: grid;
+  grid-template-rows: 140px auto;
+  justify-items: center;
+}
+
+.tc-bars i {
+  align-self: end;
+  width: 100%;
+  max-width: 18px;
+  border-radius: 4px 4px 0 0;
+  background: var(--ink);
+}
+
+.tc-bars li.miss i {
+  background: var(--red-tint);
+  border-top: 2px solid var(--red);
+}
+
+.tc-bars span {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+
+.tc-bars li:hover i {
+  opacity: 0.7;
+}
+
+.chart-card .meta {
+  margin: 12px 0 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.details-card summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.details-card .results {
+  margin: 16px 0 0;
+}
+
+.compare .meta {
+  margin: -8px 0 12px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.compare-list li {
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+}
+
+.compare-list li.you {
+  margin: 0 -12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--card);
+  border-bottom-color: transparent;
+}
+
+.compare-list li.you .rank,
+.compare-list li.you small {
+  color: #b9b9be;
+}
+
+.compare-note {
+  font-size: 15px;
+  margin: 8px 0 16px;
+}
+
+.compare-cta {
+  width: 100%;
+}
+
+.results-actions {
+  justify-content: stretch;
+}
+
+.results-actions .btn {
+  flex: 1;
+}
+
+@media (max-width: 900px) {
+  .results-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .results-page .sheet {
+    padding: 22px 18px;
+  }
+
+  .tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .level-bars li {
+    grid-template-columns: 56px minmax(0, 1fr) 96px;
+    gap: 8px;
+  }
+
+  .tc-bars {
+    gap: 2px;
+  }
+
+  .tc-bars span {
+    font-size: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .answer.wrong,
+  .countdown-num,
+  .status-live::before {
+    animation: none;
+  }
 }

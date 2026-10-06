@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Results } from "./Results";
 import { useGame } from "./useGame";
 
 const fmtPoints = (hundredths: number) => (hundredths / 100).toFixed(2);
@@ -73,9 +74,86 @@ function TimeBar({ shownAt, limitMs, running }: { shownAt: number; limitMs: numb
   );
 }
 
-/** Average time of the correctly solved problems, or null if none yet. */
+/** Average of a list of times, or null if empty. */
 function averageMs(times: number[]) {
   return times.length ? times.reduce((a, b) => a + b, 0) / times.length : null;
+}
+
+/** Big 10…1 before the first problem. The server holds the problem back until it ends. */
+function Countdown({ endsAt }: { endsAt: number }) {
+  const [left, setLeft] = useState(() => Math.max(0, Math.ceil((endsAt - performance.now()) / 1000)));
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      setLeft(Math.max(0, Math.ceil((endsAt - performance.now()) / 1000)));
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+    return () => cancelAnimationFrame(raf);
+  }, [endsAt]);
+  return (
+    <div className="countdown" role="timer" aria-live="off">
+      <div className="countdown-num" key={left}>
+        {left || "…"}
+      </div>
+      <p>Бэлдээрэй. Эхний бодлого {left} секундийн дараа гарна.</p>
+      <p className="meta">Хариугаа бичээд Enter дар. Буруу бол дахин бич, цаг үргэлжилнэ.</p>
+    </div>
+  );
+}
+
+interface LiveStats {
+  points: number;
+  correct: number;
+  ended: number;
+  wrong: number;
+  streak: number;
+  times: number[];
+}
+
+const EMPTY_STATS: LiveStats = { points: 0, correct: 0, ended: 0, wrong: 0, streak: 0, times: [] };
+
+function StatsPanel({ stats, level, levels }: { stats: LiveStats; level: number | null; levels: number }) {
+  const avg = averageMs(stats.times);
+  const best = stats.times.length ? Math.min(...stats.times) : null;
+  return (
+    <aside className="live-stats" aria-label="Явцын мэдээлэл">
+      <div className="stat stat-wide">
+        <span className="stat-label">Нийт оноо</span>
+        <span className="stat-value">{fmtPoints(stats.points)}</span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">Шат</span>
+        <span className="stat-value">
+          {level ?? 1}
+          <small>/{levels}</small>
+        </span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">Зөв</span>
+        <span className="stat-value">
+          {stats.correct}
+          <small>/{stats.ended}</small>
+        </span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">Дундаж</span>
+        <span className="stat-value">{avg === null ? "–" : fmtSeconds(avg)}<small> с</small></span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">Хамгийн хурдан</span>
+        <span className="stat-value">{best === null ? "–" : fmtSeconds(best)}<small> с</small></span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">Дараалсан зөв</span>
+        <span className="stat-value">{stats.streak}</span>
+      </div>
+      <div className="stat">
+        <span className="stat-label">Буруу оролдлого</span>
+        <span className="stat-value">{stats.wrong}</span>
+      </div>
+    </aside>
+  );
 }
 
 export default function Practice() {
@@ -83,7 +161,7 @@ export default function Practice() {
   const [value, setValue] = useState("");
   const [flash, setFlash] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  const [solvedTimes, setSolvedTimes] = useState<number[]>([]);
+  const [stats, setStats] = useState<LiveStats>(EMPTY_STATS);
 
   // A half-typed answer never carries over to the next problem.
   useEffect(() => {
@@ -91,15 +169,26 @@ export default function Practice() {
   }, [game.problem?.index, game.phase]);
 
   useEffect(() => {
-    if (game.phase === "connecting") setSolvedTimes([]);
+    if (game.phase === "connecting") setStats(EMPTY_STATS);
   }, [game.phase]);
 
   useEffect(() => {
     const f = game.feedback;
-    if (f?.kind === "correct") setSolvedTimes((t) => [...t, f.elapsedMs]);
+    if (!f) return;
+    setStats((s) => {
+      if (f.kind === "correct")
+        return {
+          ...s,
+          points: s.points + f.points,
+          correct: s.correct + 1,
+          ended: s.ended + 1,
+          streak: s.streak + 1,
+          times: [...s.times, f.elapsedMs],
+        };
+      if (f.kind === "timeout") return { ...s, ended: s.ended + 1, streak: 0 };
+      return { ...s, wrong: s.wrong + 1 };
+    });
   }, [game.feedback]);
-
-  const liveAvg = averageMs(solvedTimes);
 
   useEffect(() => {
     if (game.phase === "active") input.current?.focus();
@@ -120,6 +209,8 @@ export default function Practice() {
     setValue("");
   };
 
+  const playing = game.phase === "connecting" || game.phase === "countdown" || game.phase === "gap" || game.phase === "active";
+
   return (
     <main className="wrap">
       <header className="site-header">
@@ -134,122 +225,83 @@ export default function Practice() {
             <h1 className="total" style={{ fontSize: "clamp(32px, 6vw, 48px)" }}>
               20 бодлого
             </h1>
-            <p className="total-label">Түвшин бүрээс 4, хялбараас хэцүү рүү. Оноо хадгалагдахгүй.</p>
+            <p className="total-label">5 шат, шат бүрт 4 бодлого. Хялбараас хэцүү рүү. Оноо хадгалагдахгүй.</p>
             <button className="btn" onClick={game.start}>
               Эхлэх
             </button>
             <p className="hint">
-              Хариугаа бичээд Enter дар. Утсан дээр «Илгээх» товч дар. Эхлэх товч дармагц эхний
-              бодлого 1 секундийн дараа гарна.
+              Эхлэх товч дарсны дараа 10 секунд тоолоод эхний бодлого гарна. Хариугаа бичээд Enter
+              дар, утсан дээр «Илгээх» товч дар.
             </p>
           </div>
         )}
 
-        {(game.phase === "connecting" || game.phase === "gap" || game.phase === "active") && (
-          <>
-            <div className="progress-row">
-              <div className="progress">
-                {game.problem ? `${game.problem.index + 1} / ${game.problem.total}` : "Бэлдэж байна…"}
-              </div>
-              {liveAvg !== null && <div className="progress">Дундаж: {fmtSeconds(liveAvg)} сек</div>}
-            </div>
-            <div className="sheet">
-              {game.problem ? <ProblemCanvas text={game.problem.text} /> : <div className="problem" />}
-              {game.problem && (
-                <TimeBar
-                  shownAt={game.problem.shownAt}
-                  limitMs={game.problem.timeLimitMs}
-                  running={game.phase === "active"}
-                />
-              )}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  submit();
-                }}
-              >
-                <input
-                  ref={input}
-                  className={`answer${flash ? " wrong" : ""}`}
-                  onAnimationEnd={() => setFlash(false)}
-                  value={value}
-                  onChange={(e) => setValue(e.target.value.replace(/[^\d]/g, ""))}
-                  onPaste={(e) => e.preventDefault()}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  enterKeyHint="send"
-                  aria-label="Хариу"
-                  readOnly={game.phase !== "active"}
-                  autoFocus
-                />
-                <div className="submit-row">
-                  <button type="submit" className="btn" disabled={game.phase !== "active"}>
-                    Илгээх
-                  </button>
+        {playing && (
+          <div className="play-grid">
+            <div className="play-main">
+              <div className="progress-row">
+                <div className="progress">
+                  {game.problem ? `${game.problem.index + 1} / ${game.problem.total}` : "Бэлдэж байна…"}
                 </div>
-              </form>
-              <div
-                className={`feedback ${game.feedback?.kind === "correct" ? "good" : "bad"}`}
-                aria-live="polite"
-              >
-                {game.feedback?.kind === "correct" &&
-                  `+${fmtPoints(game.feedback.points)} (${fmtSeconds(game.feedback.elapsedMs)} сек)`}
-                {game.feedback?.kind === "wrong" && "Буруу. Дахин бич."}
-                {game.feedback?.kind === "timeout" && `Цаг дууслаа. Хариу: ${game.feedback.answer}`}
+              </div>
+              <div className="sheet">
+                {game.phase === "countdown" && game.countdownEndsAt !== null ? (
+                  <Countdown endsAt={game.countdownEndsAt} />
+                ) : (
+                  <>
+                    {game.problem ? <ProblemCanvas text={game.problem.text} /> : <div className="problem" />}
+                    {game.problem && (
+                      <TimeBar
+                        shownAt={game.problem.shownAt}
+                        limitMs={game.problem.timeLimitMs}
+                        running={game.phase === "active"}
+                      />
+                    )}
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        submit();
+                      }}
+                    >
+                      <input
+                        ref={input}
+                        className={`answer${flash ? " wrong" : ""}`}
+                        onAnimationEnd={() => setFlash(false)}
+                        value={value}
+                        onChange={(e) => setValue(e.target.value.replace(/[^\d]/g, ""))}
+                        onPaste={(e) => e.preventDefault()}
+                        inputMode="numeric"
+                        autoComplete="off"
+                        enterKeyHint="send"
+                        aria-label="Хариу"
+                        readOnly={game.phase !== "active"}
+                        autoFocus
+                      />
+                      <div className="submit-row">
+                        <button type="submit" className="btn" disabled={game.phase !== "active"}>
+                          Илгээх
+                        </button>
+                      </div>
+                    </form>
+                    <div
+                      className={`feedback ${game.feedback?.kind === "correct" ? "good" : "bad"}`}
+                      aria-live="polite"
+                    >
+                      {game.feedback?.kind === "correct" &&
+                        `+${fmtPoints(game.feedback.points)} (${fmtSeconds(game.feedback.elapsedMs)} сек)`}
+                      {game.feedback?.kind === "wrong" && "Буруу. Дахин бич."}
+                      {game.feedback?.kind === "timeout" && `Цаг дууслаа. Хариу: ${game.feedback.answer}`}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-          </>
+            <StatsPanel stats={stats} level={game.problem?.level ?? null} levels={5} />
+          </div>
         )}
 
         {game.phase === "finished" && game.result && (
-          <div className="sheet">
-            <p className="total-label" style={{ margin: 0 }}>
-              Нийт оноо
-            </p>
-            <div className="total">{fmtPoints(game.result.totalPoints)}</div>
-            <p className="total-label">
-              2,000 онооноос. {game.result.results.filter((r) => r.solved).length} бодлого зөв.
-              {(() => {
-                const avg = averageMs(
-                  game.result.results.filter((r) => r.solved && r.elapsedMs !== null).map((r) => r.elapsedMs!),
-                );
-                return avg === null ? null : (
-                  <>
-                    <br />
-                    Зөв хариултын дундаж хугацаа: <b>{fmtSeconds(avg)} сек</b>
-                  </>
-                );
-              })()}
-            </p>
-            <table className="results">
-              <thead>
-                <tr>
-                  <th>Бодлого</th>
-                  <th className="num">Хариу</th>
-                  <th className="num">Хугацаа</th>
-                  <th className="num">Оноо</th>
-                </tr>
-              </thead>
-              <tbody>
-                {game.result.results.map((r, i) => (
-                  <tr key={i} className={r.solved ? "" : "miss"}>
-                    <td>{r.text}</td>
-                    <td className="num">{r.answer}</td>
-                    <td className="num">{r.elapsedMs === null ? "—" : `${fmtSeconds(r.elapsedMs)} сек`}</td>
-                    <td className="num">{fmtPoints(r.points)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="actions" style={{ justifyContent: "center" }}>
-              <button className="btn" onClick={game.start}>
-                Дахин тоглох
-              </button>
-              <Link href="/" className="btn btn-quiet">
-                Нүүр хуудас
-              </Link>
-            </div>
-          </div>
+          <Results result={game.result} onAgain={game.start} />
         )}
 
         {game.phase === "error" && (

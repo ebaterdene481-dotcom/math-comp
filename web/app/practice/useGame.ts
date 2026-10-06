@@ -13,7 +13,8 @@ export interface ProblemResult {
 }
 
 type ServerMessage =
-  | { type: "problem"; index: number; total: number; text: string; timeLimitMs: number }
+  | { type: "countdown"; ms: number }
+  | { type: "problem"; index: number; total: number; level: number; text: string; timeLimitMs: number }
   | { type: "wrong" }
   | { type: "correct"; points: number; elapsedMs: number }
   | { type: "timeout"; answer: number }
@@ -21,7 +22,7 @@ type ServerMessage =
   | { type: "ping"; id: number }
   | { type: "error"; message: string };
 
-export type Phase = "ready" | "connecting" | "gap" | "active" | "finished" | "error";
+export type Phase = "ready" | "connecting" | "countdown" | "gap" | "active" | "finished" | "error";
 
 export type Feedback =
   | { kind: "correct"; points: number; elapsedMs: number }
@@ -34,7 +35,15 @@ const WS_URL = process.env.NEXT_PUBLIC_GAME_WS_URL ?? "ws://localhost:4000/ws/pr
 export function useGame() {
   const ws = useRef<WebSocket | null>(null);
   const [phase, setPhase] = useState<Phase>("ready");
-  const [problem, setProblem] = useState<{ index: number; total: number; text: string; timeLimitMs: number; shownAt: number } | null>(null);
+  const [problem, setProblem] = useState<{
+    index: number;
+    total: number;
+    level: number;
+    text: string;
+    timeLimitMs: number;
+    shownAt: number;
+  } | null>(null);
+  const [countdownEndsAt, setCountdownEndsAt] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [result, setResult] = useState<{ totalPoints: number; results: ProblemResult[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +66,10 @@ export function useGame() {
       switch (msg.type) {
         case "ping":
           sock.send(JSON.stringify({ type: "pong", id: msg.id }));
+          break;
+        case "countdown":
+          setCountdownEndsAt(performance.now() + msg.ms);
+          setPhase("countdown");
           break;
         case "problem":
           setProblem({ ...msg, shownAt: performance.now() });
@@ -104,5 +117,5 @@ export function useGame() {
 
   useEffect(() => () => ws.current?.close(), []);
 
-  return { phase, problem, feedback, result, error, start, answer };
+  return { phase, problem, feedback, result, error, start, answer, countdownEndsAt };
 }

@@ -192,17 +192,13 @@ function Slots({ used, max }: { used: number; max: number }) {
   return (
     <div className="slots">
       <div
-        className="slots-bar"
+        className="slots-dots"
         role="meter"
         aria-valuemin={0}
         aria-valuemax={max}
         aria-valuenow={used}
         aria-label={`${max} оролдлогоос ${used} нь ашиглагдсан`}
       >
-        <i style={{ width: `${(used / max) * 100}%` }} />
-      </div>
-      {/* Same numbers as one dot per attempt; designs choose which of the two to show. */}
-      <div className="slots-dots" aria-hidden="true">
         {Array.from({ length: max }, (_, i) => (
           <i key={i} className={i < used ? "used" : undefined} />
         ))}

@@ -6,7 +6,6 @@ import { createRoot } from "react-dom/client";
 import Home from "../app/page";
 import Practice from "../app/practice/page";
 import { installMockServer } from "./mock";
-import { DesignPicker, PICKER_CSS } from "./DesignPicker";
 
 installMockServer();
 
@@ -20,13 +19,7 @@ function App() {
     addEventListener("hashchange", on);
     return () => removeEventListener("hashchange", on);
   }, []);
-  return (
-    <>
-      <style>{PICKER_CSS}</style>
-      {route === "practice" ? <Practice /> : <Home />}
-      <DesignPicker />
-    </>
-  );
+  return route === "practice" ? <Practice /> : <Home />;
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

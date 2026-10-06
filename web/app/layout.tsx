@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Golos_Text } from "next/font/google";
+import { Golos_Text, Onest } from "next/font/google";
 import "./globals.css";
 
 // Mongolian letters Ө and Ү live in the cyrillic-ext subset.
@@ -7,6 +7,12 @@ const golos = Golos_Text({
   subsets: ["cyrillic", "cyrillic-ext", "latin"],
   weight: ["400", "600", "700", "800", "900"],
   variable: "--font-body",
+});
+// Headings and numbers.
+const onest = Onest({
+  subsets: ["cyrillic", "cyrillic-ext", "latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-onest",
 });
 
 export const metadata: Metadata = {
@@ -18,7 +24,7 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="mn" className={golos.variable}>
+    <html lang="mn" className={`${golos.variable} ${onest.variable}`}>
       <body>{children}</body>
     </html>
   );

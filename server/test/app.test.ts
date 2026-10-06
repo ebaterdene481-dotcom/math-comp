@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { buildApp } from "../src/app.js";
+import { COUNTDOWN_MS } from "../src/session.js";
 import { FakeClock } from "./fakeClock.js";
 
 let close: (() => Promise<void>) | undefined;
@@ -41,7 +42,9 @@ describe("practice websocket", () => {
     const c = connect(await start(clock));
     await c.opened;
     await c.next("ping");
-    clock.advance(1000);
+    expect(await c.next("countdown")).toEqual({ type: "countdown", ms: COUNTDOWN_MS });
+    clock.advance(COUNTDOWN_MS - 1);
+    clock.advance(1);
     const p = await c.next("problem");
     expect(p).toMatchObject({ index: 0, total: 20, timeLimitMs: 5000 });
     expect(p).not.toHaveProperty("answer");
@@ -61,7 +64,7 @@ describe("practice websocket", () => {
     await c.opened;
     c.ws.send("not json");
     c.ws.send(JSON.stringify({ type: "answer", value: 15 }));
-    clock.advance(1000);
+    clock.advance(COUNTDOWN_MS);
     expect(await c.next("problem")).toMatchObject({ index: 0 });
     c.ws.close();
   });

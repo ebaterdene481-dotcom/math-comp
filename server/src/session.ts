@@ -11,6 +11,8 @@ export const MAX_LATENCY_CREDIT_MS = 300;
 /** Answers beyond this many per second on one problem are ignored (stops guess spamming). */
 export const MAX_ANSWERS_PER_SECOND = 5;
 export const PING_INTERVAL_MS = 2000;
+/** Get-ready countdown before the first problem of a run. */
+export const COUNTDOWN_MS = 10_000;
 const RTT_SAMPLES = 10;
 
 export interface Clock {
@@ -26,7 +28,8 @@ export const systemClock: Clock = {
 };
 
 export type ServerMessage =
-  | { type: "problem"; index: number; total: number; text: string; timeLimitMs: number }
+  | { type: "countdown"; ms: number }
+  | { type: "problem"; index: number; total: number; level: number; text: string; timeLimitMs: number }
   | { type: "wrong" }
   | { type: "correct"; points: number; elapsedMs: number }
   | { type: "timeout"; answer: number }
@@ -66,6 +69,8 @@ export class GameSession {
     private readonly problems: Problem[],
     private readonly send: (msg: ServerMessage) => void,
     private readonly clock: Clock = systemClock,
+    /** Wait before the first problem; the client shows it as a countdown. */
+    private readonly countdownMs = 0,
   ) {
     this.results = problems.map((p) => ({
       text: p.text,
@@ -81,6 +86,12 @@ export class GameSession {
   start() {
     if (this.state !== "idle") return;
     this.ping();
+    if (this.countdownMs > 0) {
+      this.state = "gap";
+      this.send({ type: "countdown", ms: this.countdownMs });
+      this.timer = this.clock.setTimeout(() => this.sendProblem(), this.countdownMs);
+      return;
+    }
     this.scheduleNext();
   }
 
@@ -166,6 +177,7 @@ export class GameSession {
       type: "problem",
       index: this.index,
       total: this.problems.length,
+      level: p.level,
       text: p.text,
       timeLimitMs: TIME_LIMIT_MS,
     });

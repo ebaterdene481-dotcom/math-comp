@@ -28,8 +28,8 @@ const html = `<title>5 секунд</title>
 <meta name="description" content="100 бодлого, бодлого бүрт 5 секунд.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;600;700;800;900&family=PT+Serif:wght@400;700&family=Manrope:wght@600;700;800&family=Unbounded:wght@700&family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>:root{--font-body:"Golos Text",system-ui,sans-serif;color-scheme:light}
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;600;700;800;900&family=Onest:wght@500;600;700&display=swap" rel="stylesheet">
+<style>:root{--font-body:"Golos Text",system-ui,sans-serif;--font-onest:"Onest";color-scheme:light}
 ${css}</style>
 <div id="root"></div>
 <script>${js}</script>

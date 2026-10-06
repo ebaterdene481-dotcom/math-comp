@@ -13,7 +13,7 @@ import {
   statusOf,
 } from "./competition.js";
 import { seedDemo } from "./demo.js";
-import { GameSession, type ClientMessage, type Clock, systemClock } from "./session.js";
+import { COUNTDOWN_MS, GameSession, type ClientMessage, type Clock, systemClock } from "./session.js";
 
 /** Practice runs one IP may start per hour (protects the server, not the score). */
 export const PRACTICE_RUNS_PER_HOUR = 30;
@@ -170,6 +170,7 @@ export async function buildApp(opts: AppOptions = {}) {
         if (msg.type === "finished") socket.close(1000, "finished");
       },
       opts.clock ?? systemClock,
+      COUNTDOWN_MS,
     );
 
     socket.on("message", (data) => {

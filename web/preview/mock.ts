@@ -6,7 +6,7 @@ import { API_URL } from "../app/lib/api";
 import prizeImage from "../public/prizes/demo-phone.svg";
 import { leaderboard, statusOf, type Competition } from "../../server/src/competition";
 import { PRACTICE_PER_LEVEL, generateProblems } from "../../server/src/problems";
-import { GameSession, systemClock, type ClientMessage } from "../../server/src/session";
+import { COUNTDOWN_MS, GameSession, systemClock, type ClientMessage } from "../../server/src/session";
 
 const hour = 3600_000;
 const t0 = Date.now();
@@ -158,6 +158,7 @@ export function installMockServer() {
           }, 15);
         },
         systemClock,
+        COUNTDOWN_MS,
       );
       setTimeout(() => {
         this.readyState = 1;

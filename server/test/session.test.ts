@@ -18,6 +18,19 @@ function setup() {
 }
 
 describe("GameSession", () => {
+  it("waits out the countdown before the first problem and ignores answers during it", () => {
+    const clock = new FakeClock();
+    const sent: ServerMessage[] = [];
+    const s = new GameSession(problems, (m) => sent.push(m), clock, 10_000);
+    s.start();
+    expect(sent.find((m) => m.type === "countdown")).toEqual({ type: "countdown", ms: 10_000 });
+    clock.advance(9_999);
+    s.handle({ type: "answer", value: "15" });
+    expect(sent.filter((m) => m.type === "problem" || m.type === "wrong" || m.type === "correct")).toHaveLength(0);
+    clock.advance(1);
+    expect(sent.find((m) => m.type === "problem")).toMatchObject({ index: 0 });
+  });
+
   it("sends the first problem after the gap and scores a correct answer by server time", () => {
     const { clock, s, of } = setup();
     s.start();

@@ -167,7 +167,7 @@ export const getOpenEntries = () => call<{ entries: Entry[] }>("/api/me/entries"
 
 export interface Wallet {
   balance: number;
-  transactions: Array<{ id: string; kind: "topup" | "entry" | "prize" | "withdraw"; amount: number; at: string; note: string }>;
+  transactions: Array<{ id: string; kind: "topup" | "entry" | "prize" | "withdraw" | "refund"; amount: number; at: string; note: string }>;
   /** True while there is no payment provider and test money can be added. */
   demoTopUp?: boolean;
 }

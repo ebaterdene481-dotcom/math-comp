@@ -7,6 +7,7 @@ import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import { PRACTICE_PER_LEVEL, generateProblems } from "./problems.js";
 import { AuthError, AuthStore, toPublic } from "./auth.js";
+import type { Database } from "./db.js";
 import { seedDemo } from "./demo.js";
 import { CompetitionService, ServiceError } from "./service.js";
 import { COUNTDOWN_MS, GameSession, type ClientMessage, type Clock, systemClock } from "./session.js";
@@ -31,6 +32,8 @@ export interface AppOptions {
   adminEmails?: string[];
   /** Where uploaded prize pictures are kept. */
   uploadDir?: string;
+  /** PostgreSQL storage (DATABASE_URL). Without it everything is lost on restart. */
+  db?: Database;
 }
 
 /** Sample admin account loaded with DEMO_DATA. */
@@ -76,10 +79,17 @@ export async function buildApp(opts: AppOptions = {}) {
   app.get("/health", async () => ({ ok: true }));
 
   const now = opts.now ?? (() => new Date());
-  const auth = new AuthStore(now, [...(opts.adminEmails ?? []), ...(opts.demo ? [DEMO_ADMIN.email] : [])]);
+  const db = opts.db;
+  const auth = new AuthStore(now, [...(opts.adminEmails ?? []), ...(opts.demo ? [DEMO_ADMIN.email] : [])], db?.auth);
   const pub = (u: Parameters<typeof toPublic>[0]) => toPublic(u, auth.isAdmin(u));
-  const service = new CompetitionService(now, (id) => auth.getUser(id)?.nickname);
-  if (opts.demo) {
+  const service = new CompetitionService(now, (id) => auth.getUser(id)?.nickname, db?.service);
+  const saved = db ? await db.load() : null;
+  if (saved) {
+    auth.load(saved.users, saved.sessions);
+    service.load(saved);
+  }
+  // Sample data goes in only once: into an empty database, or every start without one.
+  if (opts.demo && !saved?.users.length) {
     const demo = seedDemo((id, nickname) => auth.addDemoUser(id, nickname), now());
     service.competitions.push(...demo.competitions);
     service.results.push(...demo.results);
@@ -90,6 +100,18 @@ export async function buildApp(opts: AppOptions = {}) {
       birthDate: "1990-01-01",
       acceptTerms: true,
     });
+    auth.saveAll();
+    service.saveAll();
+  }
+  service.refundInterrupted();
+  if (db) {
+    await db.flush();
+    // Nothing is answered before the change behind it is stored.
+    app.addHook("onSend", async (_req, _reply, payload) => {
+      await db.flush();
+      return payload;
+    });
+    app.addHook("onClose", () => db.close());
   }
 
   /** The signed-in user, or a 401 already sent. */

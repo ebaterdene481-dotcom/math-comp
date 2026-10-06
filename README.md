@@ -37,9 +37,15 @@ Product spec (Mongolian): https://claude.ai/code/artifact/ff93ef08-c8c2-4d56-9c1
 - Profile page: account details, wallet balance, competitions played with best score and
   rank. Sign in from the header on every page.
 - Accounts: email + password, nickname, birth date (18+), terms acceptance; session in an
-  httpOnly cookie. In memory for now.
+  httpOnly cookie (only its SHA-256 is stored).
+- Storage: PostgreSQL via `DATABASE_URL`. Tables are created on start-up. The rules run in
+  memory and every change is written to the database before the response goes out, so a
+  restart or redeploy loses nothing. One server process per database. A paid run that was
+  under way when the server stopped cannot be finished; its fee goes back to the wallet
+  and the attempt slot is freed. Without `DATABASE_URL` everything is kept in memory
+  (development only; the server refuses to start that way in production).
 
-Not built yet: database, real payment and withdrawals, admin user management and
+Not built yet: real payment (QPay) and withdrawals, admin user management and
 withdrawal approval. Sample competition
 data loads when `DEMO_DATA=1` (on by default outside production).
 
@@ -53,6 +59,7 @@ server/   Fastify + WebSocket game server (TypeScript)
   src/competition.ts  competition status, leaderboard order
   src/auth.ts       accounts, age/terms rules, sessions
   src/service.ts    wallet ledger, paid entries, standings (also used by the preview)
+  src/db.ts         PostgreSQL tables, start-up load, ordered write-through
   src/app.ts        HTTP API, /ws/practice and /ws/attempt/:entryId
 web/      Next.js front end
   app/page.tsx            home page
@@ -74,6 +81,7 @@ web/      Next.js front end
 
 ```bash
 npm install
+export DATABASE_URL=postgres://user:pass@localhost:5432/mathcomp   # optional in development
 npm run dev:server        # game server on :4000
 npm run dev:web           # web on :3000
 ```
@@ -91,6 +99,7 @@ accounts kept in localStorage). Only for showing the site; not used in productio
 
 ```bash
 npm test          # server unit + websocket tests
+TEST_DATABASE_URL=postgres://…/mathcomp_test npm test   # also the PostgreSQL tests (empties that database)
 npm run typecheck
 npm run build
 ```

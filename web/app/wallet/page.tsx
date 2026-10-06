@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { SiteHeader } from "../SiteHeader";
 import { AUTH_EVENT, ApiError, type Wallet, demoTopUp, getWallet, groupDigits } from "../lib/api";
 
-const KIND = { topup: "Цэнэглэлт", entry: "Тэмцээний хураамж", prize: "Шагнал", withdraw: "Мөнгө татсан" } as const;
+const KIND = { topup: "Цэнэглэлт", entry: "Тэмцээний хураамж", prize: "Шагнал", withdraw: "Мөнгө татсан", refund: "Буцаалт" } as const;
 
 const when = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Ulaanbaatar",

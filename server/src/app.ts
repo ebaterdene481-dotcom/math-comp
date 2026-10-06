@@ -104,7 +104,7 @@ export async function buildApp(opts: AppOptions = {}) {
       nickname: "Админ",
       birthDate: "1990-01-01",
       acceptTerms: true,
-    });
+    }, { skipPasswordRules: true });
     auth.markVerified(demoAdmin);
     auth.saveAll();
     service.saveAll();

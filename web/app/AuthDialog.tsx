@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { PasswordRules } from "./PasswordRules";
 import { ApiError, type User, forgotPassword, login, register } from "./lib/api";
+import { passwordProblem } from "./lib/password";
 
 type Tab = "login" | "register" | "forgot";
 
@@ -31,6 +33,7 @@ export function AuthDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<{ email: string; devLink?: string } | null>(null);
+  const [pw, setPw] = useState("");
 
   useEffect(() => {
     const d = ref.current;
@@ -42,12 +45,18 @@ export function AuthDialog({
   useEffect(() => {
     setError(null);
     setSent(null);
+    setPw("");
   }, [tab]);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const s = (k: string) => String(f.get(k) ?? "");
+    const weak = tab === "register" ? passwordProblem(s("password")) : null;
+    if (weak) {
+      setError(weak);
+      return;
+    }
     if (tab === "register" && s("password") !== s("passwordConfirm")) {
       setError(MISMATCH);
       return;
@@ -127,8 +136,10 @@ export function AuthDialog({
                   required
                   minLength={tab === "register" ? 8 : undefined}
                   autoComplete={tab === "register" ? "new-password" : "current-password"}
+                  aria-describedby={tab === "register" ? "pw-rules" : undefined}
+                  onInput={(e) => setPw(e.currentTarget.value)}
                 />
-                {tab === "register" && <small>Дор хаяж 8 тэмдэгт.</small>}
+                {tab === "register" && <PasswordRules value={pw} id="pw-rules" />}
               </label>
             )}
             {tab === "login" && (

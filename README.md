@@ -36,7 +36,8 @@ Product spec (Mongolian): https://claude.ai/code/artifact/ff93ef08-c8c2-4d56-9c1
   sample admin is admin@demo.mn / admin12345. Uploads go to `UPLOAD_DIR` (default ./uploads).
 - Profile page: account details, wallet balance, competitions played with best score and
   rank. Sign in from the header on every page.
-- Accounts: email + password (typed twice), nickname, birth date (18+), terms acceptance;
+- Accounts: email + password (typed twice; at least 8 characters with a capital letter, a
+  digit and a symbol, listed under the field), nickname, birth date (18+), terms acceptance;
   session in an httpOnly cookie (only its SHA-256 is stored).
 - Email: after registering, a link (valid 24 h) confirms the email; paying an entry fee and
   withdrawing wait until it is confirmed, and a notice under the header can send a new link.

@@ -21,9 +21,9 @@ describe("admin api", () => {
     await app.inject({
       method: "POST",
       url: "/api/auth/register",
-      payload: { email: "p@b.mn", password: "password1", nickname: "Тоглогч", birthDate: "1990-01-01", acceptTerms: true },
+      payload: { email: "p@b.mn", password: "Password1!", nickname: "Тоглогч", birthDate: "1990-01-01", acceptTerms: true },
     });
-    const player = await signIn(app, "p@b.mn", "password1");
+    const player = await signIn(app, "p@b.mn", "Password1!");
     expect((await app.inject({ url: "/api/admin/dashboard" })).statusCode).toBe(401);
     expect((await app.inject({ url: "/api/admin/dashboard", cookies: player })).statusCode).toBe(403);
 

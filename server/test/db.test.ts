@@ -27,7 +27,7 @@ describe.skipIf(!url)("postgres storage", () => {
     const reg = await app.inject({
       method: "POST",
       url: "/api/auth/register",
-      payload: { email: "k@b.mn", password: "password1", nickname: "Хасар", birthDate: "1990-01-01", acceptTerms: true },
+      payload: { email: "k@b.mn", password: "Password1!", nickname: "Хасар", birthDate: "1990-01-01", acceptTerms: true },
     });
     const cookies = { session: reg.cookies.find((c) => c.name === "session")!.value };
     // The link is used after the restart: unused links are stored too.
@@ -67,7 +67,7 @@ describe.skipIf(!url)("postgres storage", () => {
     const login = await app.inject({
       method: "POST",
       url: "/api/auth/login",
-      payload: { email: "k@b.mn", password: "password1" },
+      payload: { email: "k@b.mn", password: "Password1!" },
     });
     expect(login.statusCode).toBe(200);
     await app.close();
@@ -81,7 +81,7 @@ describe.skipIf(!url)("postgres storage", () => {
       const reg = await app.inject({
         method: "POST",
         url: "/api/auth/register",
-        payload: { email: "a@b.mn", password: "password1", nickname: "Анар", birthDate: "1990-01-01", acceptTerms: true },
+        payload: { email: "a@b.mn", password: "Password1!", nickname: "Анар", birthDate: "1990-01-01", acceptTerms: true },
       });
       await app.inject({ method: "POST", url: "/api/auth/verify", payload: { token: new URL(reg.json().devLink).searchParams.get("token") } });
       return { session: reg.cookies.find((c) => c.name === "session")!.value };

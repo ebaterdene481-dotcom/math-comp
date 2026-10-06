@@ -81,7 +81,7 @@ describe("paid attempt websocket", () => {
     const reg = await app.inject({
       method: "POST",
       url: "/api/auth/register",
-      payload: { email: "w@b.mn", password: "password1", nickname: "Тоглогч", birthDate: "1990-01-01", acceptTerms: true },
+      payload: { email: "w@b.mn", password: "Password1!", nickname: "Тоглогч", birthDate: "1990-01-01", acceptTerms: true },
     });
     const session = reg.cookies.find((c) => c.name === "session")!.value;
     const cookies = { session };

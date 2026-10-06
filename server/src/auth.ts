@@ -3,6 +3,7 @@
 
 import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
+import { passwordProblem } from "./password.js";
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 
@@ -161,7 +162,8 @@ export class AuthStore {
     return { total: real.length, since: real.filter((u) => u.createdAt >= since).length };
   }
 
-  async register(input: RegisterInput): Promise<User> {
+  /** `skipPasswordRules` is for the sample admin only, whose password predates the rules. */
+  async register(input: RegisterInput, opts: { skipPasswordRules?: boolean } = {}): Promise<User> {
     const email = typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
     const nickname = typeof input.nickname === "string" ? input.nickname.trim() : "";
     const password = typeof input.password === "string" ? input.password : "";
@@ -170,8 +172,8 @@ export class AuthStore {
     if (!EMAIL_RE.test(email)) throw new AuthError("email_invalid", "И-мэйл хаяг буруу байна.");
     if (!NICK_RE.test(nickname))
       throw new AuthError("nickname_invalid", "Хочны нэр 3–20 үсэг, тоо байна.");
-    if (password.length < 8)
-      throw new AuthError("password_short", "Нууц үг дор хаяж 8 тэмдэгт байна.");
+    const weak = opts.skipPasswordRules ? null : passwordProblem(password);
+    if (weak) throw new AuthError("password_weak", weak);
     const year = Number(birthDate.slice(0, 4));
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || Number.isNaN(Date.parse(birthDate)) || year < 1900)
       throw new AuthError("birthdate_invalid", "Төрсөн огноогоо оруулна уу.");
@@ -288,8 +290,8 @@ export class AuthStore {
 
   /** Sets a new password from a reset link and signs the account out everywhere. */
   async resetPassword(token: unknown, password: unknown): Promise<User> {
-    if (typeof password !== "string" || password.length < 8)
-      throw new AuthError("password_short", "Нууц үг дор хаяж 8 тэмдэгт байна.");
+    const weak = typeof password === "string" ? passwordProblem(password) : "Шинэ нууц үгээ оруулна уу.";
+    if (typeof password !== "string" || weak) throw new AuthError("password_weak", weak!);
     const user = this.consume(token, "reset");
     user.passwordHash = await hashPassword(password);
     // Opening the link proved the email is theirs.

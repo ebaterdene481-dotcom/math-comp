@@ -2978,3 +2978,39 @@ a {
   justify-self: start;
   margin-top: 8px;
 }
+
+/* New-password rules, ticked off while typing */
+
+.pw-rules {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.pw-rules li {
+  display: flex;
+  gap: 8px;
+}
+
+.pw-rules li > span[aria-hidden] {
+  width: 12px;
+  text-align: center;
+}
+
+.pw-rules li.ok {
+  color: var(--ink);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

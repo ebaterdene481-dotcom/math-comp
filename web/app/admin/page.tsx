@@ -783,7 +783,7 @@ function Users({ list, reload }: { list: AdminUser[]; reload: () => Promise<void
         хариулт, эсвэл дунджаар 0.7 сек-ээс хурдан), эсвэл өөр бүртгэлтэй нэг төхөөрөмж, нэг банкны данс ашигласан.
         Зөвхөн IP хаяг давхцах нь хангалтгүй, учир нь мобайл сүлжээнд олон хүн нэг IP-тэй байдаг. Систем өөрөө юу ч
         хаахгүй, та шийднэ. Хаасан тоглогч нэвтэрч чадахгүй, оноо нь тэргүүлэгчдийн жагсаалт болон шагналаас хасагдана.
-        Хэтэвчний мөнгө нь хэвээр үлдэнэ. «Нээх» дарвал бүгд сэргэнэ.
+        Хэтэвчний мөнгө нь хэвээр үлдэнэ. Шалгаж дуусаад «Нээх» дарвал бүгд сэргэнэ.
       </p>
       {shown.length === 0 ? (
         <p className="meta">
@@ -829,7 +829,7 @@ function UserRow({ u, reload }: { u: AdminUser; reload: () => Promise<void> }) {
           <b>{u.nickname}</b>
           {u.flagged && <span className="pill-wait">Сэжигтэй</span>}
           {u.isAdmin && <span className="pill-done">Админ</span>}
-          {u.banned && <span className="pill-rejected">Хаагдсан</span>}
+          {u.banned && <span className="pill-rejected">Түр хаагдсан</span>}
           {!u.emailVerified && <span className="pill-paid">Имэйл баталгаажаагүй</span>}
         </div>
         <span className="meta user-email">
@@ -857,7 +857,7 @@ function UserRow({ u, reload }: { u: AdminUser; reload: () => Promise<void> }) {
         {ipOnly.length > 0 && <span className="meta">Нэг IP хаягтай: {ipOnly.map((l) => l.nickname).join(", ")}</span>}
         {u.banned && (
           <span className="withdraw-reason">
-            {fmtAt(u.banned.at)}-нд хаасан. Шалтгаан: {u.banned.reason}
+            {fmtAt(u.banned.at)}-нд түр хаасан. Шалтгаан: {u.banned.reason}
           </span>
         )}
         {error && (
@@ -888,13 +888,13 @@ function UserRow({ u, reload }: { u: AdminUser; reload: () => Promise<void> }) {
               <input
                 required
                 autoFocus
-                placeholder="Хаах шалтгаан"
+                placeholder="Шалгаж буй шалтгаан"
                 value={reason}
                 maxLength={200}
                 onChange={(e) => setReason(e.target.value)}
               />
               <button type="submit" className="btn btn-quiet btn-danger" disabled={busy}>
-                Хаах
+                Түр хаах
               </button>
               <button type="button" className="link" onClick={() => setBanning(false)}>
                 Болих
@@ -902,7 +902,7 @@ function UserRow({ u, reload }: { u: AdminUser; reload: () => Promise<void> }) {
             </form>
           ) : (
             <button type="button" className="btn btn-quiet btn-danger" disabled={busy} onClick={() => setBanning(true)}>
-              Хаах
+              Түр хаах
             </button>
           )}
         </div>

@@ -328,7 +328,7 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
     const u = users().find((x) => x.email === email && x.password === b.password);
     if (!u) return fail("bad_credentials", "И-мэйл эсвэл нууц үг буруу байна.");
     const ban = bans()[u.id];
-    if (ban) return fail("banned", `Таны бүртгэлийг админ хаасан. Шалтгаан: ${ban.reason}`);
+    if (ban) return fail("banned", `Таны бүртгэлийг админ шалгах хүртэл түр хаасан. Шалтгаан: ${ban.reason}`);
     store.set("preview.session", u.id);
     noteSeen(u.id);
     return { status: 200, body: { user: pub(u) } };

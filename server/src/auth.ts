@@ -215,7 +215,7 @@ export class AuthStore {
     const user = [...this.users.values()].find((u) => u.email === email);
     const ok = user && typeof password === "string" && (await checkPassword(password, user.passwordHash));
     if (!ok) throw new AuthError("bad_credentials", "И-мэйл эсвэл нууц үг буруу байна.");
-    if (user.bannedAt) throw new AuthError("banned", `Таны бүртгэлийг админ хаасан. Шалтгаан: ${user.banReason}`);
+    if (user.bannedAt) throw new AuthError("banned", `Таны бүртгэлийг админ шалгах хүртэл түр хаасан. Шалтгаан: ${user.banReason}`);
     return user;
   }
 
@@ -303,7 +303,7 @@ export class AuthStore {
     const weak = typeof password === "string" ? passwordProblem(password) : "Шинэ нууц үгээ оруулна уу.";
     if (typeof password !== "string" || weak) throw new AuthError("password_weak", weak!);
     const user = this.consume(token, "reset");
-    if (user.bannedAt) throw new AuthError("banned", `Таны бүртгэлийг админ хаасан. Шалтгаан: ${user.banReason}`);
+    if (user.bannedAt) throw new AuthError("banned", `Таны бүртгэлийг админ шалгах хүртэл түр хаасан. Шалтгаан: ${user.banReason}`);
     user.passwordHash = await hashPassword(password);
     // Opening the link proved the email is theirs.
     user.emailVerifiedAt ??= this.now();

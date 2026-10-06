@@ -170,9 +170,28 @@ export interface Wallet {
   transactions: Array<{ id: string; kind: "topup" | "entry" | "prize" | "withdraw" | "refund"; amount: number; at: string; note: string }>;
   /** True while there is no payment provider and test money can be added. */
   demoTopUp?: boolean;
+  withdrawals: Withdrawal[];
+  /** Smallest amount that can be taken out, in tugrik. */
+  minWithdrawal: number;
+  banks: string[];
+}
+
+export interface Withdrawal {
+  id: string;
+  amount: number;
+  bank: string;
+  account: string;
+  holder: string;
+  status: "pending" | "paid" | "rejected";
+  requestedAt: string;
+  decidedAt: string | null;
+  /** Why an admin turned it down. */
+  reason: string | null;
 }
 
 export const getWallet = () => call<Wallet>("/api/wallet");
+export const requestWithdrawal = (form: { amount: number; bank: string; account: string; holder: string }) =>
+  call<{ withdrawal: Withdrawal; balance: number }>("/api/wallet/withdraw", { method: "POST", body: JSON.stringify(form) });
 
 export const demoTopUp = (amount: number) =>
   call<Wallet>("/api/wallet/demo-topup", { method: "POST", body: JSON.stringify({ amount }) });
@@ -197,7 +216,10 @@ export interface AdminDashboard {
   today: { attempts: number; fees: number };
   users: { total: number; since: number };
   awaitingAward: number;
+  pendingWithdrawals: number;
 }
+
+export type AdminWithdrawal = Withdrawal & { nickname: string; balance: number };
 
 export interface CompetitionForm {
   name: string;
@@ -223,6 +245,14 @@ export const awardPrize = (id: string, cash: number) =>
   call<{ award: AdminCompetition["award"] }>(`/api/admin/competitions/${id}/award`, {
     method: "POST",
     body: JSON.stringify({ cash }),
+  });
+export const getAdminWithdrawals = () => call<{ withdrawals: AdminWithdrawal[] }>("/api/admin/withdrawals");
+export const markWithdrawalPaid = (id: string) =>
+  call<{ withdrawal: Withdrawal }>(`/api/admin/withdrawals/${id}/paid`, { method: "POST", body: "{}" });
+export const rejectWithdrawal = (id: string, reason: string) =>
+  call<{ withdrawal: Withdrawal }>(`/api/admin/withdrawals/${id}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
   });
 export const uploadImage = (dataUrl: string) =>
   call<{ url: string }>("/api/admin/uploads", { method: "POST", body: JSON.stringify({ dataUrl }) });

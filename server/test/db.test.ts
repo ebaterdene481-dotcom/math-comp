@@ -11,7 +11,7 @@ const url = process.env.TEST_DATABASE_URL;
 async function reset() {
   const c = new pg.Client({ connectionString: url });
   await c.connect();
-  await c.query("drop table if exists wallet_txs, results, entries, competitions, sessions, users cascade");
+  await c.query("drop table if exists withdrawals, wallet_txs, results, entries, competitions, sessions, users cascade");
   await c.end();
 }
 
@@ -31,13 +31,23 @@ describe.skipIf(!url)("postgres storage", () => {
     });
     const cookies = { session: reg.cookies.find((c) => c.name === "session")!.value };
     await app.inject({ method: "POST", url: "/api/wallet/demo-topup", cookies, payload: { amount: 10000 } });
+    await app.inject({ method: "POST", url: "/api/wallet/demo-topup", cookies, payload: { amount: 10000 } });
     const paid = await app.inject({ method: "POST", url: "/api/competitions/demo-1/enter", cookies });
     expect(paid.statusCode).toBe(200);
+    const asked = await app.inject({
+      method: "POST",
+      url: "/api/wallet/withdraw",
+      cookies,
+      payload: { amount: 10000, bank: "Голомт банк", account: "1105123456", holder: "Хасар" },
+    });
+    expect(asked.statusCode).toBe(200);
     await app.close();
 
     app = await start();
     expect((await app.inject({ url: "/api/me", cookies })).json().user).toMatchObject({ nickname: "Хасар" });
-    expect((await app.inject({ url: "/api/wallet", cookies })).json().balance).toBe(5000);
+    const wallet = (await app.inject({ url: "/api/wallet", cookies })).json();
+    expect(wallet.balance).toBe(5000);
+    expect(wallet.withdrawals).toMatchObject([{ status: "pending", amount: 10000, bank: "Голомт банк" }]);
     expect((await app.inject({ url: "/api/me/entries", cookies })).json().entries).toHaveLength(1);
     const current = (await app.inject({ url: "/api/competitions/current" })).json();
     expect(current.competition.attemptsUsed).toBe(64);

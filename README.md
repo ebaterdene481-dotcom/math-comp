@@ -45,7 +45,12 @@ Product spec (Mongolian): https://claude.ai/code/artifact/ff93ef08-c8c2-4d56-9c1
   and the attempt slot is freed. Without `DATABASE_URL` everything is kept in memory
   (development only; the server refuses to start that way in production).
 
-Not built yet: real payment (QPay) and withdrawals, admin user management and
+- Withdrawals: from the wallet page a player asks to send money (at least 10 000₮) to a
+  bank account; the money leaves the wallet at once. One open request at a time. On the
+  admin page («Мөнгө татах») an admin sends it by bank transfer and marks it paid, or
+  rejects it with a reason and the money goes back to the wallet.
+
+Not built yet: real payment (QPay), admin user management and
 withdrawal approval. Sample competition
 data loads when `DEMO_DATA=1` (on by default outside production).
 

@@ -16,7 +16,15 @@ const PRIZE_IMAGES: Record<string, string> = {
 import type { Award, Competition } from "../../server/src/competition";
 import { seedDemo } from "../../server/src/demo";
 import { PRACTICE_PER_LEVEL, generateProblems } from "../../server/src/problems";
-import { CompetitionService, ServiceError, type Entry, type WalletTx } from "../../server/src/service";
+import {
+  BANKS,
+  CompetitionService,
+  MIN_WITHDRAWAL,
+  ServiceError,
+  type Entry,
+  type WalletTx,
+  type Withdrawal,
+} from "../../server/src/service";
 import { COUNTDOWN_MS, GameSession, systemClock, type ClientMessage } from "../../server/src/session";
 
 const demoNames = new Map<string, string>();
@@ -80,6 +88,7 @@ function loadService() {
   const saved = store.get<{
     txs: WalletTx[];
     entries: Entry[];
+    withdrawals?: Withdrawal[];
     results: typeof demo.results;
     sample?: Record<string, Partial<SavedCompetition>>;
     added?: SavedCompetition[];
@@ -99,6 +108,13 @@ function loadService() {
     ...saved.entries.map((e) => ({ ...e, paidAt: new Date(e.paidAt), startBy: new Date(e.startBy) })),
   );
   service.results.push(...saved.results.map((r) => ({ ...r, finishedAt: new Date(r.finishedAt) })));
+  service.withdrawals.push(
+    ...(saved.withdrawals ?? []).map((w) => ({
+      ...w,
+      requestedAt: new Date(w.requestedAt),
+      decidedAt: w.decidedAt && new Date(w.decidedAt),
+    })),
+  );
   // A run cannot outlive the page here, so one left open by a reload ends as if every problem timed out.
   for (const e of service.entries) if (e.status === "playing") service.finishAttempt(e.id, 0);
   save();
@@ -117,6 +133,7 @@ function save() {
   store.set("preview.service", {
     txs: service.txs,
     entries: service.entries,
+    withdrawals: service.withdrawals,
     results: service.results.filter((r) => !demoNames.has(r.userId)),
     sample,
     added: service.competitions.filter((c) => !SAMPLE_IDS.includes(c.id)).map(toSaved),
@@ -179,7 +196,23 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
   if (path === "/api/wallet") {
     const u = me();
     if (!u) return signedOut;
-    return { status: 200, body: { ...service.wallet(u.id), demoTopUp: true } };
+    return {
+      status: 200,
+      body: {
+        ...service.wallet(u.id),
+        demoTopUp: true,
+        withdrawals: service.withdrawalsOf(u.id),
+        minWithdrawal: MIN_WITHDRAWAL,
+        banks: BANKS,
+      },
+    };
+  }
+  if (path === "/api/wallet/withdraw" && method === "POST") {
+    const u = me();
+    if (!u) return signedOut;
+    const w = service.requestWithdrawal(u.id, b);
+    save();
+    return { status: 200, body: { withdrawal: service.publicWithdrawal(w), balance: service.balance(u.id) } };
   }
   if (path === "/api/wallet/demo-topup" && method === "POST") {
     const u = me();
@@ -259,6 +292,13 @@ function adminRoute(path: string, method: string, b: Record<string, any>): { sta
     if (!m) return fail("image_type", "Зөвхөн PNG, JPG эсвэл WebP зураг оруулна уу.");
     if (String(b.dataUrl).length > 2.8 * 1024 * 1024) return fail("image_size", "Зураг 2 МБ-аас бага байна.");
     return ok({ url: b.dataUrl });
+  }
+  if (path === "/api/admin/withdrawals") return ok({ withdrawals: service.adminWithdrawals() });
+  const payout = path.match(/^\/api\/admin\/withdrawals\/([^/]+)\/(paid|reject)$/);
+  if (payout && method === "POST") {
+    const w = payout[2] === "paid" ? service.markWithdrawalPaid(payout[1]) : service.rejectWithdrawal(payout[1], b.reason);
+    save();
+    return ok({ withdrawal: service.publicWithdrawal(w) });
   }
   const award = path.match(/^\/api\/admin\/competitions\/([^/]+)\/award$/);
   if (award) {

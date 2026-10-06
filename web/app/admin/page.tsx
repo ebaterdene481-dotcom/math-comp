@@ -8,6 +8,7 @@ import {
   AUTH_EVENT,
   type AdminCompetition,
   type AdminDashboard,
+  type AdminWithdrawal,
   ApiError,
   type CompetitionForm,
   awardPrize,
@@ -16,8 +17,11 @@ import {
   fmtPoints,
   getAdminCompetitions,
   getAdminDashboard,
+  getAdminWithdrawals,
   getMe,
   groupDigits,
+  markWithdrawalPaid,
+  rejectWithdrawal,
   updateCompetition,
   uploadImage,
 } from "../lib/api";
@@ -42,20 +46,25 @@ function toLocalInput(iso: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-type Tab = "dashboard" | "competitions" | "awards";
+type Tab = "dashboard" | "competitions" | "awards" | "withdrawals";
 
-/** Admin page: running competitions, adding new ones with a prize picture, and handing out prizes. */
+/**
+ * Admin page: running competitions, adding new ones with a prize picture, handing out
+ * prizes, and paying out players' withdrawal requests.
+ */
 export default function AdminPage() {
   const [access, setAccess] = useState<"loading" | "denied" | "ok">("loading");
   const [tab, setTab] = useState<Tab>("dashboard");
   const [dash, setDash] = useState<AdminDashboard | null>(null);
   const [list, setList] = useState<AdminCompetition[]>([]);
+  const [payouts, setPayouts] = useState<AdminWithdrawal[]>([]);
 
   const reload = useCallback(async () => {
     try {
-      const [d, c] = await Promise.all([getAdminDashboard(), getAdminCompetitions()]);
+      const [d, c, w] = await Promise.all([getAdminDashboard(), getAdminCompetitions(), getAdminWithdrawals()]);
       setDash(d);
       setList(c.competitions);
+      setPayouts(w.withdrawals);
       setAccess("ok");
     } catch {
       setAccess("denied");
@@ -73,6 +82,7 @@ export default function AdminPage() {
   }, [reload]);
 
   const awaiting = list.filter((c) => c.status === "finished" && c.winner && !c.award).length;
+  const waitingPayouts = payouts.filter((w) => w.status === "pending").length;
 
   return (
     <main className="wrap">
@@ -94,7 +104,8 @@ export default function AdminPage() {
                   [
                     ["dashboard", "Самбар"],
                     ["competitions", "Тэмцээнүүд"],
-                    ["awards", "Шагнал олгох"],
+                    ["awards", "Шагнал"],
+                    ["withdrawals", "Мөнгө татах"],
                   ] as const
                 ).map(([k, label]) => (
                   <button
@@ -107,6 +118,7 @@ export default function AdminPage() {
                   >
                     {label}
                     {k === "awards" && awaiting > 0 && <span className="badge">{awaiting}</span>}
+                    {k === "withdrawals" && waitingPayouts > 0 && <span className="badge">{waitingPayouts}</span>}
                   </button>
                 ))}
               </div>
@@ -114,6 +126,7 @@ export default function AdminPage() {
             {tab === "dashboard" && dash && <Dashboard d={dash} onGo={setTab} />}
             {tab === "competitions" && <Competitions list={list} reload={reload} />}
             {tab === "awards" && <Awards list={list} reload={reload} />}
+            {tab === "withdrawals" && <Withdrawals list={payouts} reload={reload} />}
           </>
         )}
       </section>
@@ -178,6 +191,10 @@ function Dashboard({ d, onGo }: { d: AdminDashboard; onGo: (t: Tab) => void }) {
           <dt>Шагнал олгох хүлээгдэж буй</dt>
           <dd>{d.awaitingAward}</dd>
         </div>
+        <div>
+          <dt>Мөнгө татах хүсэлт</dt>
+          <dd>{d.pendingWithdrawals}</dd>
+        </div>
       </dl>
       <div className="admin-actions">
         <button type="button" className="btn" onClick={() => onGo("competitions")}>
@@ -186,6 +203,11 @@ function Dashboard({ d, onGo }: { d: AdminDashboard; onGo: (t: Tab) => void }) {
         {d.awaitingAward > 0 && (
           <button type="button" className="btn btn-quiet" onClick={() => onGo("awards")}>
             Шагнал олгох ({d.awaitingAward})
+          </button>
+        )}
+        {d.pendingWithdrawals > 0 && (
+          <button type="button" className="btn btn-quiet" onClick={() => onGo("withdrawals")}>
+            Мөнгө татах ({d.pendingWithdrawals})
           </button>
         )}
       </div>
@@ -556,6 +578,113 @@ function AwardRow({ c, reload }: { c: AdminCompetition; reload: () => Promise<vo
           <button type="button" className="btn" disabled={busy} onClick={award}>
             {busy ? "Түр хүлээнэ үү…" : "Шагнал олгосон"}
           </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
+const W_STATUS = { pending: "Хүлээгдэж буй", paid: "Шилжүүлсэн", rejected: "Татгалзсан" } as const;
+
+/** Players' requests to take money out: waiting ones first. */
+function Withdrawals({ list, reload }: { list: AdminWithdrawal[]; reload: () => Promise<void> }) {
+  if (list.length === 0) return <p className="meta">Одоогоор мөнгө татах хүсэлт алга.</p>;
+  return (
+    <>
+      <p className="meta admin-hint">
+        Мөнгө хүсэлт ирэх үед тоглогчийн хэтэвчнээс хасагдсан. Банкны аппаараа шилжүүлээд «Шилжүүлсэн» дарна. Татгалзвал мөнгө
+        хэтэвчинд нь буцна.
+      </p>
+      <ul className="admin-list">
+        {list.map((w) => (
+          <WithdrawalRow key={w.id} w={w} reload={reload} />
+        ))}
+      </ul>
+    </>
+  );
+}
+
+function WithdrawalRow({ w, reload }: { w: AdminWithdrawal; reload: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
+
+  async function act(fn: () => Promise<unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+      await reload();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Алдаа гарлаа.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const paid = () => {
+    if (window.confirm(`${w.nickname}-д ${groupDigits(w.amount)}₮ шилжүүлсэн гэж тэмдэглэх үү? Үүнийг буцаах боломжгүй.`))
+      act(() => markWithdrawalPaid(w.id));
+  };
+
+  return (
+    <li className="comp-card admin-row payout-row">
+      <div className="admin-row-main">
+        <div className="admin-row-head">
+          <b className="payout-amount">{groupDigits(w.amount)}₮</b>
+          <span className={`pill-${w.status}`}>{W_STATUS[w.status]}</span>
+        </div>
+        <span className="payout-bank">
+          {w.bank} · <span className="num">{w.account}</span> · {w.holder}
+        </span>
+        <span className="meta">
+          {w.nickname} · {fmtAt(w.requestedAt)}-нд хүссэн
+          {w.decidedAt && ` · ${fmtAt(w.decidedAt)}-нд шийдсэн`}
+          {w.status === "pending" && ` · хэтэвчинд үлдсэн ${groupDigits(w.balance)}₮`}
+        </span>
+        {w.reason && <span className="withdraw-reason">Шалтгаан: {w.reason}</span>}
+        {error && (
+          <span className="auth-error" role="alert">
+            {error}
+          </span>
+        )}
+      </div>
+      {w.status === "pending" && (
+        <div className="payout-actions">
+          {rejecting ? (
+            <form
+              className="reject-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                act(() => rejectWithdrawal(w.id, reason));
+              }}
+            >
+              <input
+                required
+                autoFocus
+                placeholder="Татгалзах шалтгаан"
+                value={reason}
+                maxLength={200}
+                onChange={(e) => setReason(e.target.value)}
+              />
+              <button type="submit" className="btn btn-quiet" disabled={busy}>
+                Татгалзах
+              </button>
+              <button type="button" className="link" onClick={() => setRejecting(false)}>
+                Болих
+              </button>
+            </form>
+          ) : (
+            <>
+              <button type="button" className="btn" disabled={busy} onClick={paid}>
+                Шилжүүлсэн
+              </button>
+              <button type="button" className="btn btn-quiet" disabled={busy} onClick={() => setRejecting(true)}>
+                Татгалзах
+              </button>
+            </>
+          )}
         </div>
       )}
     </li>

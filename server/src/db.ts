@@ -5,7 +5,7 @@
 import pg from "pg";
 import type { AuthPersist, Session, User } from "./auth.js";
 import type { AttemptResult, Competition } from "./competition.js";
-import type { Entry, ServicePersist, WalletTx } from "./service.js";
+import type { Entry, ServicePersist, WalletTx, Withdrawal } from "./service.js";
 
 const SCHEMA = `
 create table if not exists users (
@@ -67,6 +67,19 @@ create table if not exists wallet_txs (
   note text not null
 );
 create index if not exists wallet_txs_user on wallet_txs (user_id);
+
+create table if not exists withdrawals (
+  id text primary key,
+  user_id text not null references users(id),
+  amount integer not null,
+  bank text not null,
+  account text not null,
+  holder text not null,
+  status text not null,
+  requested_at timestamptz not null,
+  decided_at timestamptz,
+  reason text
+);
 `;
 
 export interface Snapshot {
@@ -76,6 +89,7 @@ export interface Snapshot {
   entries: Entry[];
   results: AttemptResult[];
   txs: WalletTx[];
+  withdrawals: Withdrawal[];
 }
 
 export class Database {
@@ -122,13 +136,14 @@ export class Database {
 
   async load(): Promise<Snapshot> {
     const q = async (sql: string) => (await this.pool.query(sql)).rows;
-    const [users, sessions, competitions, entries, results, txs] = await Promise.all([
+    const [users, sessions, competitions, entries, results, txs, withdrawals] = await Promise.all([
       q("select * from users order by created_at"),
       q("select * from sessions"),
       q("select * from competitions order by opens_at"),
       q("select * from entries order by paid_at"),
       q("select * from results order by id"),
       q("select * from wallet_txs order by at"),
+      q("select * from withdrawals order by requested_at"),
     ]);
     return {
       users: users.map((r) => ({
@@ -170,6 +185,18 @@ export class Database {
         finishedAt: r.finished_at,
       })),
       txs: txs.map((r) => ({ id: r.id, userId: r.user_id, kind: r.kind, amount: r.amount, at: r.at, note: r.note })),
+      withdrawals: withdrawals.map((r) => ({
+        id: r.id,
+        userId: r.user_id,
+        amount: r.amount,
+        bank: r.bank,
+        account: r.account,
+        holder: r.holder,
+        status: r.status,
+        requestedAt: r.requested_at,
+        decidedAt: r.decided_at ?? undefined,
+        reason: r.reason ?? undefined,
+      })),
     };
   }
 
@@ -237,5 +264,12 @@ export class Database {
         t.at,
         t.note,
       ]),
+    withdrawal: (w) =>
+      this.write(
+        `insert into withdrawals (id, user_id, amount, bank, account, holder, status, requested_at, decided_at, reason)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         on conflict (id) do update set status = $7, decided_at = $9, reason = $10`,
+        [w.id, w.userId, w.amount, w.bank, w.account, w.holder, w.status, w.requestedAt, w.decidedAt ?? null, w.reason ?? null],
+      ),
   };
 }

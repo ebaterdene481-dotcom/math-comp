@@ -292,7 +292,11 @@ function CompetitionView({
 }
 
 function YourPlace({ me, standings }: { me: Standing; standings: Standing[] }) {
-  const above = standings.find((s) => s.rank === me.rank - 1);
+  const leader = standings[0];
+  // A leader is compared with the runner-up instead.
+  const other = me.rank === 1 ? standings[1] : leader;
+  const rows = other ? (me.rank === 1 ? [me, other] : [other, me]) : [me];
+  const scale = Math.max(...rows.map((r) => r.points), 1);
   return (
     <section className="comp-card your-place" aria-label="Таны байр">
       <div>
@@ -305,11 +309,27 @@ function YourPlace({ me, standings }: { me: Standing; standings: Standing[] }) {
         <span className="your-pts">{fmtPoints(me.points)}</span>
         <span className="meta">{me.attempts} оролдлогоос</span>
       </div>
-      <p className="your-next">
-        {above
-          ? `${above.rank}-р байр (${above.nickname}) хүртэл ${fmtPoints(above.points - me.points)} оноо дутуу байна.`
-          : "Та тэргүүлж байна. Тэмцээн дуустал байраа хадгалаарай."}
-      </p>
+      <div className="vs">
+        <span className="stat-label">{me.rank === 1 ? "2-р байртай харьцуулахад" : "1-р байртай харьцуулахад"}</span>
+        <ul className="vs-bars">
+          {rows.map((r) => (
+            <li key={r.rank} className={r.you ? "you" : undefined}>
+              <span className="vs-name">{r.you ? "Та" : `${r.rank}. ${r.nickname}`}</span>
+              <span className="vs-track">
+                <i style={{ width: `${(r.points / scale) * 100}%` }} />
+              </span>
+              <span className="vs-pts">{fmtPoints(r.points)}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="your-next">
+          {!other
+            ? "Та цорын ганц оролцогч байна."
+            : me.rank === 1
+              ? `Та ${fmtPoints(me.points - other.points)} оноогоор түрүүлж байна.`
+              : `1-р байраас ${fmtPoints(leader.points - me.points)} оноо дутуу байна.`}
+        </p>
+      </div>
     </section>
   );
 }

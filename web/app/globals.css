@@ -1785,6 +1785,64 @@ a {
   font-size: 16px;
 }
 
+.vs {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.vs-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 14px;
+}
+
+/* Rows share the list's columns so both bars start at the same place. */
+.vs-bars li {
+  display: contents;
+  color: #b9b9be;
+}
+
+.vs-bars li.you {
+  color: var(--card);
+  font-weight: 700;
+}
+
+.vs-name {
+  max-width: 130px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.vs-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #2e2e31;
+  overflow: hidden;
+}
+
+.vs-track i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #6b6b70;
+}
+
+.vs-bars li.you .vs-track i {
+  background: var(--card);
+}
+
+.vs-pts {
+  font-family: var(--numbers);
+  font-variant-numeric: tabular-nums;
+}
+
 .standings-head {
   display: flex;
   justify-content: space-between;
@@ -1863,7 +1921,7 @@ a {
     gap: 16px 32px;
   }
 
-  .your-next {
+  .vs {
     grid-column: 1 / -1;
   }
 

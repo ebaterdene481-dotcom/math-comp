@@ -3014,3 +3014,89 @@ a {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Admin: players and fair-play flags */
+
+.users-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  margin-bottom: 12px;
+}
+
+.users-tools input[type="search"] {
+  flex: 1 1 260px;
+  height: 44px;
+  padding: 0 16px;
+  border: var(--bw) solid var(--line);
+  border-radius: 999px;
+  font: 400 16px var(--font-body);
+  color: var(--ink);
+  background: var(--card);
+}
+
+.users-tools input[type="search"]:focus {
+  outline: none;
+  border-color: var(--pen);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.users-tools .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.users-tools .check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--pen);
+}
+
+.user-row {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 16px 20px;
+}
+
+.user-row.flagged {
+  box-shadow: inset 4px 0 0 var(--red), var(--shadow);
+}
+
+.user-email {
+  overflow-wrap: anywhere;
+}
+
+.fair-flags {
+  margin: 6px 0 0;
+  padding: 10px 14px;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  border-radius: 14px;
+  background: var(--red-tint);
+  font-size: 14px;
+}
+
+.fair-warning {
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--red-tint);
+  color: var(--red);
+  font-size: 14px;
+}
+
+.fair-warning .link {
+  color: inherit;
+  font-size: inherit;
+}
+
+@media (max-width: 560px) {
+  .admin-tabs button:last-child:nth-child(odd) {
+    grid-column: span 2;
+    justify-content: center;
+  }
+}

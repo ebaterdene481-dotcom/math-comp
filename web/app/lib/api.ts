@@ -241,7 +241,36 @@ export interface AdminDashboard {
   users: { total: number; since: number };
   awaitingAward: number;
   pendingWithdrawals: number;
+  /** Players with a fair-play flag. */
+  flaggedUsers: number;
 }
+
+export type LinkReason = "device" | "bank" | "ip";
+
+/** A player as the admin sees them, with fair-play flags. */
+export interface AdminUser {
+  id: string;
+  nickname: string;
+  email: string;
+  emailVerified: boolean;
+  isAdmin: boolean;
+  createdAt: string;
+  balance: number;
+  runs: number;
+  bestPoints: number | null;
+  /** Paid runs answered faster than a person can. */
+  fastRuns: {
+    competitionName: string;
+    points: number;
+    paidAt: string;
+    review: { solved: number; medianMs: number | null; fastestMs: number | null; superhuman: number };
+  }[];
+  /** Other accounts that look like the same person. */
+  links: { nickname: string; reasons: LinkReason[] }[];
+  flagged: boolean;
+}
+
+export const getAdminUsers = () => call<{ users: AdminUser[] }>("/api/admin/users");
 
 export type AdminWithdrawal = Withdrawal & { nickname: string; balance: number };
 

@@ -8,6 +8,7 @@ import {
   AUTH_EVENT,
   type AdminCompetition,
   type AdminDashboard,
+  type AdminUser,
   type AdminWithdrawal,
   ApiError,
   type CompetitionForm,
@@ -17,6 +18,7 @@ import {
   fmtPoints,
   getAdminCompetitions,
   getAdminDashboard,
+  getAdminUsers,
   getAdminWithdrawals,
   getMe,
   groupDigits,
@@ -46,11 +48,11 @@ function toLocalInput(iso: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-type Tab = "dashboard" | "competitions" | "awards" | "withdrawals";
+type Tab = "dashboard" | "competitions" | "awards" | "withdrawals" | "users";
 
 /**
  * Admin page: running competitions, adding new ones with a prize picture, handing out
- * prizes, and paying out players' withdrawal requests.
+ * prizes, paying out players' withdrawal requests, and the player list with fair-play flags.
  */
 export default function AdminPage() {
   const [access, setAccess] = useState<"loading" | "denied" | "ok">("loading");
@@ -58,13 +60,20 @@ export default function AdminPage() {
   const [dash, setDash] = useState<AdminDashboard | null>(null);
   const [list, setList] = useState<AdminCompetition[]>([]);
   const [payouts, setPayouts] = useState<AdminWithdrawal[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
 
   const reload = useCallback(async () => {
     try {
-      const [d, c, w] = await Promise.all([getAdminDashboard(), getAdminCompetitions(), getAdminWithdrawals()]);
+      const [d, c, w, u] = await Promise.all([
+        getAdminDashboard(),
+        getAdminCompetitions(),
+        getAdminWithdrawals(),
+        getAdminUsers(),
+      ]);
       setDash(d);
       setList(c.competitions);
       setPayouts(w.withdrawals);
+      setUsers(u.users);
       setAccess("ok");
     } catch {
       setAccess("denied");
@@ -83,6 +92,7 @@ export default function AdminPage() {
 
   const awaiting = list.filter((c) => c.status === "finished" && c.winner && !c.award).length;
   const waitingPayouts = payouts.filter((w) => w.status === "pending").length;
+  const flagged = users.filter((u) => u.flagged);
 
   return (
     <main className="wrap">
@@ -106,6 +116,7 @@ export default function AdminPage() {
                     ["competitions", "Тэмцээнүүд"],
                     ["awards", "Шагнал"],
                     ["withdrawals", "Мөнгө татах"],
+                    ["users", "Хэрэглэгчид"],
                   ] as const
                 ).map(([k, label]) => (
                   <button
@@ -119,14 +130,18 @@ export default function AdminPage() {
                     {label}
                     {k === "awards" && awaiting > 0 && <span className="badge">{awaiting}</span>}
                     {k === "withdrawals" && waitingPayouts > 0 && <span className="badge">{waitingPayouts}</span>}
+                    {k === "users" && flagged.length > 0 && <span className="badge">{flagged.length}</span>}
                   </button>
                 ))}
               </div>
             </div>
             {tab === "dashboard" && dash && <Dashboard d={dash} onGo={setTab} />}
             {tab === "competitions" && <Competitions list={list} reload={reload} />}
-            {tab === "awards" && <Awards list={list} reload={reload} />}
+            {tab === "awards" && (
+              <Awards list={list} reload={reload} flagged={new Set(flagged.map((u) => u.nickname))} onGo={setTab} />
+            )}
             {tab === "withdrawals" && <Withdrawals list={payouts} reload={reload} />}
+            {tab === "users" && <Users list={users} />}
           </>
         )}
       </section>
@@ -195,6 +210,10 @@ function Dashboard({ d, onGo }: { d: AdminDashboard; onGo: (t: Tab) => void }) {
           <dt>Мөнгө татах хүсэлт</dt>
           <dd>{d.pendingWithdrawals}</dd>
         </div>
+        <div>
+          <dt>Сэжигтэй хэрэглэгч</dt>
+          <dd>{d.flaggedUsers}</dd>
+        </div>
       </dl>
       <div className="admin-actions">
         <button type="button" className="btn" onClick={() => onGo("competitions")}>
@@ -208,6 +227,11 @@ function Dashboard({ d, onGo }: { d: AdminDashboard; onGo: (t: Tab) => void }) {
         {d.pendingWithdrawals > 0 && (
           <button type="button" className="btn btn-quiet" onClick={() => onGo("withdrawals")}>
             Мөнгө татах ({d.pendingWithdrawals})
+          </button>
+        )}
+        {d.flaggedUsers > 0 && (
+          <button type="button" className="btn btn-quiet" onClick={() => onGo("users")}>
+            Сэжигтэй хэрэглэгч ({d.flaggedUsers})
           </button>
         )}
       </div>
@@ -478,9 +502,7 @@ function CompetitionEditor({
             </label>
           </div>
           {locked && (
-            <p className="meta">
-              Төлбөр төлсөн оролцогч байгаа тул хураамж, оролдлогын тоо, эхлэх цагийг өөрчлөхгүй.
-            </p>
+            <p className="meta">Төлбөр төлсөн оролцогч байгаа тул хураамж, оролдлогын тоо, эхлэх цагийг өөрчлөхгүй.</p>
           )}
         </div>
       </div>
@@ -501,7 +523,18 @@ function CompetitionEditor({
   );
 }
 
-function Awards({ list, reload }: { list: AdminCompetition[]; reload: () => Promise<void> }) {
+function Awards({
+  list,
+  reload,
+  flagged,
+  onGo,
+}: {
+  list: AdminCompetition[];
+  reload: () => Promise<void>;
+  /** Nicknames with a fair-play flag. */
+  flagged: Set<string>;
+  onGo: (t: Tab) => void;
+}) {
   const finished = list.filter((c) => c.status === "finished");
   if (finished.length === 0)
     return (
@@ -512,13 +545,23 @@ function Awards({ list, reload }: { list: AdminCompetition[]; reload: () => Prom
   return (
     <ul className="admin-list">
       {finished.map((c) => (
-        <AwardRow key={c.id} c={c} reload={reload} />
+        <AwardRow key={c.id} c={c} reload={reload} suspect={!!c.winner && flagged.has(c.winner.nickname)} onGo={onGo} />
       ))}
     </ul>
   );
 }
 
-function AwardRow({ c, reload }: { c: AdminCompetition; reload: () => Promise<void> }) {
+function AwardRow({
+  c,
+  reload,
+  suspect,
+  onGo,
+}: {
+  c: AdminCompetition;
+  reload: () => Promise<void>;
+  suspect: boolean;
+  onGo: (t: Tab) => void;
+}) {
   const [cash, setCash] = useState(c.prizeFund ?? 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -544,7 +587,11 @@ function AwardRow({ c, reload }: { c: AdminCompetition; reload: () => Promise<vo
       <div className="admin-row-main">
         <div className="admin-row-head">
           <b>{c.name}</b>
-          {c.award ? <span className="pill-done">Олгосон</span> : c.winner && <span className="pill-wait">Хүлээгдэж буй</span>}
+          {c.award ? (
+            <span className="pill-done">Олгосон</span>
+          ) : (
+            c.winner && <span className="pill-wait">Хүлээгдэж буй</span>
+          )}
         </div>
         <span className="meta">
           {fmtAt(c.closesAt)}-нд дууссан · Шагнал: {c.prize}
@@ -555,6 +602,15 @@ function AwardRow({ c, reload }: { c: AdminCompetition; reload: () => Promise<vo
           </span>
         ) : (
           <span className="meta">Оноо авсан оролцогч байгаагүй.</span>
+        )}
+        {suspect && !c.award && (
+          <span className="fair-warning">
+            Энэ тоглогч сэжигтэй гэж тэмдэглэгдсэн. Шагнал олгохоос өмнө{" "}
+            <button type="button" className="link" onClick={() => onGo("users")}>
+              «Хэрэглэгчид» хэсгээс
+            </button>{" "}
+            шалгана уу.
+          </span>
         )}
         {c.award && (
           <span className="meta">
@@ -592,8 +648,8 @@ function Withdrawals({ list, reload }: { list: AdminWithdrawal[]; reload: () => 
   return (
     <>
       <p className="meta admin-hint">
-        Мөнгө хүсэлт ирэх үед тоглогчийн хэтэвчнээс хасагдсан. Банкны аппаараа шилжүүлээд «Шилжүүлсэн» дарна. Татгалзвал мөнгө
-        хэтэвчинд нь буцна.
+        Мөнгө хүсэлт ирэх үед тоглогчийн хэтэвчнээс хасагдсан. Банкны аппаараа шилжүүлээд «Шилжүүлсэн» дарна. Татгалзвал
+        мөнгө хэтэвчинд нь буцна.
       </p>
       <ul className="admin-list">
         {list.map((w) => (
@@ -624,7 +680,9 @@ function WithdrawalRow({ w, reload }: { w: AdminWithdrawal; reload: () => Promis
   }
 
   const paid = () => {
-    if (window.confirm(`${w.nickname}-д ${groupDigits(w.amount)}₮ шилжүүлсэн гэж тэмдэглэх үү? Үүнийг буцаах боломжгүй.`))
+    if (
+      window.confirm(`${w.nickname}-д ${groupDigits(w.amount)}₮ шилжүүлсэн гэж тэмдэглэх үү? Үүнийг буцаах боломжгүй.`)
+    )
       act(() => markWithdrawalPaid(w.id));
   };
 
@@ -687,6 +745,94 @@ function WithdrawalRow({ w, reload }: { w: AdminWithdrawal; reload: () => Promis
           )}
         </div>
       )}
+    </li>
+  );
+}
+
+const REASON_TEXT = { device: "Нэг төхөөрөмж", bank: "Нэг банкны данс", ip: "Нэг IP хаяг" } as const;
+
+const secs = (ms: number | null) => (ms === null ? "–" : `${(ms / 1000).toFixed(2)} сек`);
+
+/** Every registered player, those with a fair-play flag first. */
+function Users({ list }: { list: AdminUser[] }) {
+  const [query, setQuery] = useState("");
+  const [onlyFlagged, setOnlyFlagged] = useState(false);
+  const q = query.trim().toLowerCase();
+  const shown = list.filter(
+    (u) => (!onlyFlagged || u.flagged) && (!q || u.nickname.toLowerCase().includes(q) || u.email.includes(q)),
+  );
+  return (
+    <>
+      <div className="users-tools">
+        <input
+          type="search"
+          placeholder="Хочны нэр эсвэл имэйлээр хайх"
+          aria-label="Хэрэглэгч хайх"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <label className="check">
+          <input type="checkbox" checked={onlyFlagged} onChange={(e) => setOnlyFlagged(e.target.checked)} />
+          <span>Зөвхөн сэжигтэй</span>
+        </label>
+      </div>
+      <p className="meta admin-hint">
+        Сэжигтэй гэж тэмдэглэх үндэслэл: хүнээс хэт хурдан хариулсан оролдлого (0.3 сек-ээс хурдан 3 ба түүнээс олон зөв
+        хариулт, эсвэл дунджаар 0.7 сек-ээс хурдан), эсвэл өөр бүртгэлтэй нэг төхөөрөмж, нэг банкны данс ашигласан.
+        Зөвхөн IP хаяг давхцах нь хангалтгүй, учир нь мобайл сүлжээнд олон хүн нэг IP-тэй байдаг. Систем өөрөө юу ч
+        хаахгүй, та шийднэ.
+      </p>
+      {shown.length === 0 ? (
+        <p className="meta">
+          {list.length === 0 ? "Одоогоор бүртгүүлсэн хэрэглэгч алга." : "Тохирох хэрэглэгч олдсонгүй."}
+        </p>
+      ) : (
+        <ul className="admin-list">
+          {shown.map((u) => (
+            <UserRow key={u.id} u={u} />
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
+function UserRow({ u }: { u: AdminUser }) {
+  const strong = u.links.filter((l) => l.reasons.some((r) => r !== "ip"));
+  const ipOnly = u.links.filter((l) => l.reasons.every((r) => r === "ip"));
+  return (
+    <li className={`comp-card admin-row user-row${u.flagged ? " flagged" : ""}`}>
+      <div className="admin-row-main">
+        <div className="admin-row-head">
+          <b>{u.nickname}</b>
+          {u.flagged && <span className="pill-wait">Сэжигтэй</span>}
+          {u.isAdmin && <span className="pill-done">Админ</span>}
+          {!u.emailVerified && <span className="pill-paid">Имэйл баталгаажаагүй</span>}
+        </div>
+        <span className="meta user-email">
+          {u.email} · {fmtAt(u.createdAt)}-нд бүртгүүлсэн
+        </span>
+        <span className="meta">
+          Үлдэгдэл {groupDigits(u.balance)}₮ · {u.runs} оролдлого
+          {u.bestPoints !== null && ` · шилдэг ${fmtPoints(u.bestPoints)} оноо`}
+        </span>
+        {(u.fastRuns.length > 0 || strong.length > 0) && (
+          <ul className="fair-flags">
+            {u.fastRuns.map((r) => (
+              <li key={r.paidAt}>
+                <b>Хэт хурдан:</b> {r.competitionName}, {fmtPoints(r.points)} оноо. Дундаж {secs(r.review.medianMs)},
+                хамгийн хурдан {secs(r.review.fastestMs)}, 0.3 сек-ээс хурдан {r.review.superhuman} хариулт.
+              </li>
+            ))}
+            {strong.map((l) => (
+              <li key={l.nickname}>
+                <b>Өөр бүртгэлтэй холбоотой:</b> {l.nickname} ({l.reasons.map((r) => REASON_TEXT[r]).join(", ")})
+              </li>
+            ))}
+          </ul>
+        )}
+        {ipOnly.length > 0 && <span className="meta">Нэг IP хаягтай: {ipOnly.map((l) => l.nickname).join(", ")}</span>}
+      </div>
     </li>
   );
 }

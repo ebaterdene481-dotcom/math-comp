@@ -156,6 +156,11 @@ export class AuthStore {
     return this.adminEmails.has(user.email);
   }
 
+  /** Registered players, sample players excluded. */
+  realUsers() {
+    return [...this.users.values()].filter((u) => !u.email.endsWith("@demo.local"));
+  }
+
   /** Registered players (sample players excluded), and how many joined since `since`. */
   userCounts(since: Date) {
     const real = [...this.users.values()].filter((u) => !u.email.endsWith("@demo.local"));

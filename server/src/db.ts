@@ -4,6 +4,7 @@
 
 import pg from "pg";
 import type { AuthPersist, EmailToken, Session, User } from "./auth.js";
+import type { Sighting, SightingPersist } from "./fairplay.js";
 import type { AttemptResult, Competition } from "./competition.js";
 import type { Entry, ServicePersist, WalletTx, Withdrawal } from "./service.js";
 
@@ -90,6 +91,17 @@ create table if not exists email_tokens (
   expires_at timestamptz not null,
   used boolean not null
 );
+
+alter table entries add column if not exists review jsonb;
+
+create table if not exists sightings (
+  user_id text not null references users(id),
+  kind text not null,
+  value_hash text not null,
+  first_at timestamptz not null,
+  last_at timestamptz not null,
+  primary key (user_id, kind, value_hash)
+);
 `;
 
 export interface Snapshot {
@@ -101,6 +113,7 @@ export interface Snapshot {
   txs: WalletTx[];
   withdrawals: Withdrawal[];
   tokens: EmailToken[];
+  sightings: Sighting[];
 }
 
 export class Database {
@@ -147,7 +160,7 @@ export class Database {
 
   async load(): Promise<Snapshot> {
     const q = async (sql: string) => (await this.pool.query(sql)).rows;
-    const [users, sessions, competitions, entries, results, txs, withdrawals, tokens] = await Promise.all([
+    const [users, sessions, competitions, entries, results, txs, withdrawals, tokens, sightings] = await Promise.all([
       q("select * from users order by created_at"),
       q("select * from sessions"),
       q("select * from competitions order by opens_at"),
@@ -156,6 +169,7 @@ export class Database {
       q("select * from wallet_txs order by at"),
       q("select * from withdrawals order by requested_at"),
       q("select * from email_tokens where not used and expires_at > now()"),
+      q("select * from sightings"),
     ]);
     return {
       users: users.map((r) => ({
@@ -190,6 +204,7 @@ export class Database {
         startBy: r.start_by,
         status: r.status,
         points: r.points ?? undefined,
+        review: r.review ?? undefined,
       })),
       results: results.map((r) => ({
         competitionId: r.competition_id,
@@ -217,6 +232,13 @@ export class Database {
         expires: r.expires_at,
         used: r.used,
       })),
+      sightings: sightings.map((r) => ({
+        userId: r.user_id,
+        kind: r.kind,
+        value: r.value_hash,
+        firstAt: r.first_at,
+        lastAt: r.last_at,
+      })),
     };
   }
 
@@ -241,6 +263,15 @@ export class Database {
         `insert into email_tokens (token_hash, user_id, kind, expires_at, used) values ($1, $2, $3, $4, $5)
          on conflict (token_hash) do update set used = $5`,
         [t.tokenHash, t.userId, t.kind, t.expires, t.used],
+      ),
+  };
+
+  readonly sightings: SightingPersist = {
+    sighting: (s) =>
+      this.write(
+        `insert into sightings (user_id, kind, value_hash, first_at, last_at) values ($1, $2, $3, $4, $5)
+         on conflict (user_id, kind, value_hash) do update set last_at = $5`,
+        [s.userId, s.kind, s.value, s.firstAt, s.lastAt],
       ),
   };
 
@@ -270,10 +301,19 @@ export class Database {
     deleteCompetition: (id) => this.write("delete from competitions where id = $1", [id]),
     entry: (e) =>
       this.write(
-        `insert into entries (id, user_id, competition_id, paid_at, start_by, status, points)
-         values ($1, $2, $3, $4, $5, $6, $7)
-         on conflict (id) do update set status = $6, points = $7`,
-        [e.id, e.userId, e.competitionId, e.paidAt, e.startBy, e.status, e.points ?? null],
+        `insert into entries (id, user_id, competition_id, paid_at, start_by, status, points, review)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
+         on conflict (id) do update set status = $6, points = $7, review = $8`,
+        [
+          e.id,
+          e.userId,
+          e.competitionId,
+          e.paidAt,
+          e.startBy,
+          e.status,
+          e.points ?? null,
+          e.review ? JSON.stringify(e.review) : null,
+        ],
       ),
     result: (r) =>
       this.write("insert into results (competition_id, user_id, points, finished_at) values ($1, $2, $3, $4)", [

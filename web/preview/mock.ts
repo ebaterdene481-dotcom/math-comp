@@ -26,6 +26,7 @@ import {
   type Withdrawal,
 } from "../../server/src/service";
 import { passwordProblem } from "../../server/src/password";
+import { type Sighting, Sightings, adminUserRows } from "../../server/src/fairplay";
 import { COUNTDOWN_MS, GameSession, systemClock, type ClientMessage } from "../../server/src/session";
 
 const demoNames = new Map<string, string>();
@@ -72,6 +73,29 @@ const pub = (u: StoredUser) => ({
   isAdmin: u.email === ADMIN.email,
   emailVerified: !u.unverified,
 });
+
+/** One device id per browser, like the server's device cookie. */
+function deviceId() {
+  let id = store.get<string | null>("preview.device", null);
+  if (!id) {
+    id = Math.random().toString(36).slice(2);
+    store.set("preview.device", id);
+  }
+  return id;
+}
+const sightings = new Sightings(() => new Date(), {
+  sighting: () => store.set("preview.sightings", sightings.all()),
+});
+sightings.load(
+  store
+    .get<(Omit<Sighting, "firstAt" | "lastAt"> & { firstAt: string; lastAt: string })[]>("preview.sightings", [])
+    .map((x) => ({ ...x, firstAt: new Date(x.firstAt), lastAt: new Date(x.lastAt) })),
+);
+/** The preview has no IP address to compare, only the browser. */
+const noteSeen = (userId: string) => sightings.see(userId, "device", deviceId());
+
+/** A sample flagged player for the admin's list, so the preview shows what a flag looks like. */
+const SAMPLE_FAST = { id: "sample-fast", email: "hurdan77@demo.local", nickname: "Хурдан_77" };
 
 const saveUser = (u: StoredUser) => store.set("preview.users", users().map((x) => (x.id === u.id ? u : x)));
 
@@ -141,7 +165,7 @@ function loadService() {
   }
   service.competitions.push(...(saved?.added ?? []).map(reviveCompetition));
   service.results.push(...demo.results);
-  if (!saved) return;
+  if (!saved) return addSampleFastRun();
   service.txs.push(...saved.txs.map((t) => ({ ...t, at: new Date(t.at) })));
   service.entries.push(
     ...saved.entries.map((e) => ({ ...e, paidAt: new Date(e.paidAt), startBy: new Date(e.startBy) })),
@@ -154,12 +178,28 @@ function loadService() {
       decidedAt: w.decidedAt && new Date(w.decidedAt),
     })),
   );
+  addSampleFastRun();
   // A run cannot outlive the page here, so one left open by a reload ends as if every problem timed out.
   for (const e of service.entries) if (e.status === "playing") service.finishAttempt(e.id, 0);
   save();
 }
 
 const SAMPLE_IDS = ["demo-1", "demo-past-1", "demo-past-2"];
+
+function addSampleFastRun() {
+  if (service.entries.some((e) => e.id === "sample-fast-run")) return;
+  const at = new Date(Date.now() - 86_400_000);
+  service.entries.push({
+    id: "sample-fast-run",
+    userId: SAMPLE_FAST.id,
+    competitionId: "demo-past-1",
+    paidAt: at,
+    startBy: at,
+    status: "finished",
+    points: 958_420,
+    review: { solved: 97, medianMs: 410, fastestMs: 120, superhuman: 31, suspicious: true },
+  });
+}
 
 function save() {
   const toSaved = (c: Competition): SavedCompetition => JSON.parse(JSON.stringify(c));
@@ -225,6 +265,7 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
     if (!u) return signedOut;
     if (u.unverified) return unverified;
     const entry = service.enter(u.id, enter[1]);
+    noteSeen(u.id);
     save();
     return { status: 200, body: { entry: service.publicEntry(entry), balance: service.balance(u.id) } };
   }
@@ -252,6 +293,7 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
     if (!u) return signedOut;
     if (u.unverified) return unverified;
     const w = service.requestWithdrawal(u.id, b);
+    noteSeen(u.id);
     save();
     return { status: 200, body: { withdrawal: service.publicWithdrawal(w), balance: service.balance(u.id) } };
   }
@@ -280,6 +322,7 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
     const u = users().find((x) => x.email === email && x.password === b.password);
     if (!u) return fail("bad_credentials", "И-мэйл эсвэл нууц үг буруу байна.");
     store.set("preview.session", u.id);
+    noteSeen(u.id);
     return { status: 200, body: { user: pub(u) } };
   }
   if (path === "/api/auth/register" && method === "POST") {
@@ -302,6 +345,7 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
     const u = { id: String(Date.now()), email, nickname, password: String(b.password), unverified: true };
     store.set("preview.users", [...all, u]);
     store.set("preview.session", u.id);
+    noteSeen(u.id);
     return { status: 200, body: { user: pub(u), ...issueLink(u.id, "verify") } };
   }
   if (path === "/api/auth/verify" && method === "POST") {
@@ -342,6 +386,20 @@ function startOfDay() {
   return d;
 }
 
+function userRows() {
+  const accounts = users().map((u) => ({
+    id: u.id,
+    email: u.email,
+    nickname: u.nickname,
+    // Preview ids are the sign-up time; the sample admin's is not.
+    createdAt: new Date(u.id === ADMIN.id ? Date.now() : Number(u.id)),
+    emailVerified: !u.unverified,
+    isAdmin: u.email === ADMIN.email,
+  }));
+  const sample = { ...SAMPLE_FAST, createdAt: new Date(Date.now() - 2 * 86_400_000), emailVerified: true };
+  return adminUserRows([...accounts, sample], service, sightings.all());
+}
+
 function adminRoute(path: string, method: string, b: Record<string, any>): { status: number; body: unknown } {
   const ok = (body: unknown) => ({ status: 200, body });
   if (path === "/api/admin/dashboard") {
@@ -350,8 +408,10 @@ function adminRoute(path: string, method: string, b: Record<string, any>): { sta
     return ok({
       ...service.dashboard(since),
       users: { total: list.length, since: list.filter((u) => Number(u.id) >= since.getTime()).length },
+      flaggedUsers: userRows().filter((u) => u.flagged).length,
     });
   }
+  if (path === "/api/admin/users") return ok({ users: userRows() });
   if (path === "/api/admin/competitions" && method === "GET") return ok({ competitions: service.adminCompetitions() });
   if (path === "/api/admin/competitions" && method === "POST") {
     const c = service.createCompetition(b);
@@ -484,7 +544,7 @@ export function installMockServer() {
         problems,
         (msg) => {
           if (msg.type === "finished") {
-            service.finishAttempt(entryId, msg.totalPoints);
+            service.finishAttempt(entryId, msg.totalPoints, msg.results);
             save();
             liveRuns.delete(entryId);
             holder.socket?.deliver({ ...msg, placing: service.placing(entry.competitionId, u.id) }, true);

@@ -36,53 +36,6 @@
   /* --font-body and --font-onest come from next/font in layout.tsx */
 }
 
-.hero > div:first-child {
-  position: relative;
-  padding: 200px 40px 40px;
-  border-radius: var(--radius);
-  background: #1c1c1e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='220' viewBox='0 0 600 220'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.55' stroke-width='1.5'%3E%3Cpath d='M-10 40C80 60 120 90 210 92C300 94 330 70 300 110C270 150 200 140 210 150'/%3E%3Cpath d='M200 150C300 140 380 140 420 150C470 162 460 190 520 196C560 200 600 196 620 194'/%3E%3C/g%3E%3Ccircle cx='200' cy='150' r='22' fill='none' stroke='%23fff' stroke-width='1.5'/%3E%3Ccircle cx='200' cy='150' r='9' fill='%23fff'/%3E%3Ccircle cx='120' cy='74' r='5' fill='%23fff'/%3E%3Ccircle cx='420' cy='150' r='5' fill='%231c1c1e' stroke='%23fff' stroke-width='1.5'/%3E%3Ccircle cx='520' cy='196' r='5' fill='%231c1c1e' stroke='%23fff' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat top left / 100% auto;
-  color: #fff;
-}
-
-.hero h1 {
-  color: #8b8b90;
-}
-
-.hero h1 .clock {
-  color: #fff;
-}
-
-.hero p,
-.rules li {
-  color: #b9b9be;
-  border-color: #2e2e31;
-}
-
-.rules b {
-  color: #fff;
-}
-
-.hero > div:first-child .btn {
-  background: #fff;
-  border-color: #fff;
-  color: #161618;
-}
-
-.timebar {
-  height: 6px;
-}
-
-.status {
-  border-width: 1px;
-}
-
-@media (max-width: 520px) {
-  .hero > div:first-child {
-    padding: 140px 24px 28px;
-  }
-}
-
-
 * {
   box-sizing: border-box;
 }
@@ -639,6 +592,53 @@ a {
   .hero {
     grid-template-columns: 1fr;
     padding-top: 16px;
+  }
+}
+
+/* Home intro: the dark card. Kept after the base hero rules so it wins. */
+.hero > div:first-child {
+  position: relative;
+  padding: 200px 40px 40px;
+  border-radius: var(--radius);
+  background: #1c1c1e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='220' viewBox='0 0 600 220'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.55' stroke-width='1.5'%3E%3Cpath d='M-10 40C80 60 120 90 210 92C300 94 330 70 300 110C270 150 200 140 210 150'/%3E%3Cpath d='M200 150C300 140 380 140 420 150C470 162 460 190 520 196C560 200 600 196 620 194'/%3E%3C/g%3E%3Ccircle cx='200' cy='150' r='22' fill='none' stroke='%23fff' stroke-width='1.5'/%3E%3Ccircle cx='200' cy='150' r='9' fill='%23fff'/%3E%3Ccircle cx='120' cy='74' r='5' fill='%23fff'/%3E%3Ccircle cx='420' cy='150' r='5' fill='%231c1c1e' stroke='%23fff' stroke-width='1.5'/%3E%3Ccircle cx='520' cy='196' r='5' fill='%231c1c1e' stroke='%23fff' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat top left / 100% auto;
+  color: #fff;
+}
+
+.hero h1 {
+  color: #8b8b90;
+}
+
+.hero h1 .clock {
+  color: #fff;
+}
+
+.hero p,
+.rules li {
+  color: #b9b9be;
+  border-color: #2e2e31;
+}
+
+.rules b {
+  color: #fff;
+}
+
+.hero > div:first-child .btn {
+  background: #fff;
+  border-color: #fff;
+  color: #161618;
+}
+
+.timebar {
+  height: 6px;
+}
+
+.status {
+  border-width: 1px;
+}
+
+@media (max-width: 520px) {
+  .hero > div:first-child {
+    padding: 140px 24px 28px;
   }
 }
 

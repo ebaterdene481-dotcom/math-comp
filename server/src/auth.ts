@@ -17,6 +17,8 @@ export interface User {
   termsVersion: string;
   passwordHash: string;
   createdAt: Date;
+  /** Set once the player opened the link sent to their email. */
+  emailVerifiedAt?: Date;
 }
 
 export interface PublicUser {
@@ -25,6 +27,8 @@ export interface PublicUser {
   nickname: string;
   /** Can open the admin page. */
   isAdmin: boolean;
+  /** Paying an entry fee or taking money out needs a confirmed email. */
+  emailVerified: boolean;
 }
 
 export const toPublic = (u: User, isAdmin = false): PublicUser => ({
@@ -32,6 +36,7 @@ export const toPublic = (u: User, isAdmin = false): PublicUser => ({
   email: u.email,
   nickname: u.nickname,
   isAdmin,
+  emailVerified: Boolean(u.emailVerifiedAt),
 });
 
 export class AuthError extends Error {
@@ -83,20 +88,43 @@ export interface Session {
   expires: Date;
 }
 
+export type EmailTokenKind = "verify" | "reset";
+
+/** A one-time link sent by email. Only the hash is kept. */
+export interface EmailToken {
+  tokenHash: string;
+  userId: string;
+  kind: EmailTokenKind;
+  expires: Date;
+  used: boolean;
+}
+
+/** How long each kind of emailed link works. */
+export const TOKEN_MS: Record<EmailTokenKind, number> = { verify: 24 * 3600_000, reset: 3600_000 };
+
 /** Where accounts and sessions are written so they survive a restart. */
 export interface AuthPersist {
   user(u: User): void;
   session(s: Session): void;
   endSession(tokenHash: string): void;
+  endUserSessions(userId: string): void;
+  emailToken(t: EmailToken): void;
 }
 
-const IN_MEMORY: AuthPersist = { user() {}, session() {}, endSession() {} };
+const IN_MEMORY: AuthPersist = {
+  user() {},
+  session() {},
+  endSession() {},
+  endUserSessions() {},
+  emailToken() {},
+};
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
 export class AuthStore {
   private users = new Map<string, User>();
   private sessions = new Map<string, Session>();
+  private tokens = new Map<string, EmailToken>();
   static readonly SESSION_MS = 30 * 24 * 3600 * 1000;
 
   /** Admins are named by email (ADMIN_EMAILS), so no one can make themselves one. */
@@ -111,10 +139,11 @@ export class AuthStore {
   }
 
   /** Puts back what the database holds, on start-up. Expired sessions are dropped. */
-  load(users: User[], sessions: Session[]) {
+  load(users: User[], sessions: Session[], tokens: EmailToken[] = []) {
     for (const u of users) this.users.set(u.id, u);
     const now = this.now().getTime();
     for (const s of sessions) if (s.expires.getTime() >= now) this.sessions.set(s.tokenHash, s);
+    for (const t of tokens) if (!t.used && t.expires.getTime() >= now) this.tokens.set(t.tokenHash, t);
   }
 
   /** Writes every account, e.g. freshly seeded demo players. */
@@ -204,6 +233,73 @@ export class AuthStore {
     return this.users.get(id);
   }
 
+  findByEmail(emailRaw: unknown) {
+    const email = typeof emailRaw === "string" ? emailRaw.trim().toLowerCase() : "";
+    return [...this.users.values()].find((u) => u.email === email);
+  }
+
+  /** A new one-time link for `userId`. Earlier unused links of the same kind stop working. */
+  issueToken(userId: string, kind: EmailTokenKind): string {
+    for (const t of this.tokens.values())
+      if (t.userId === userId && t.kind === kind) {
+        this.tokens.delete(t.tokenHash);
+        this.persist.emailToken({ ...t, used: true });
+      }
+    const token = randomBytes(32).toString("base64url");
+    const t: EmailToken = {
+      tokenHash: hashToken(token),
+      userId,
+      kind,
+      expires: new Date(this.now().getTime() + TOKEN_MS[kind]),
+      used: false,
+    };
+    this.tokens.set(t.tokenHash, t);
+    this.persist.emailToken(t);
+    return token;
+  }
+
+  /** Uses up a link; throws if it is unknown, used or too old. */
+  private consume(token: unknown, kind: EmailTokenKind): User {
+    const t = typeof token === "string" ? this.tokens.get(hashToken(token)) : undefined;
+    const user = t && t.kind === kind && t.expires.getTime() >= this.now().getTime() ? this.users.get(t.userId) : undefined;
+    if (!t || !user)
+      throw new AuthError(
+        "link_invalid",
+        kind === "verify"
+          ? "Холбоос хүчингүй эсвэл хугацаа нь дууссан байна. Шинэ холбоос авна уу."
+          : "Нууц үг сэргээх холбоос хүчингүй эсвэл хугацаа нь дууссан байна. Дахин хүснэ үү.",
+      );
+    this.tokens.delete(t.tokenHash);
+    this.persist.emailToken({ ...t, used: true });
+    return user;
+  }
+
+  verifyEmail(token: unknown): User {
+    const user = this.consume(token, "verify");
+    this.markVerified(user);
+    return user;
+  }
+
+  markVerified(user: User) {
+    if (user.emailVerifiedAt) return;
+    user.emailVerifiedAt = this.now();
+    this.persist.user(user);
+  }
+
+  /** Sets a new password from a reset link and signs the account out everywhere. */
+  async resetPassword(token: unknown, password: unknown): Promise<User> {
+    if (typeof password !== "string" || password.length < 8)
+      throw new AuthError("password_short", "Нууц үг дор хаяж 8 тэмдэгт байна.");
+    const user = this.consume(token, "reset");
+    user.passwordHash = await hashPassword(password);
+    // Opening the link proved the email is theirs.
+    user.emailVerifiedAt ??= this.now();
+    this.persist.user(user);
+    for (const [h, s] of this.sessions) if (s.userId === user.id) this.sessions.delete(h);
+    this.persist.endUserSessions(user.id);
+    return user;
+  }
+
   /** For demo seeding only. */
   addDemoUser(id: string, nickname: string) {
     this.users.set(id, {
@@ -214,6 +310,7 @@ export class AuthStore {
       termsVersion: TERMS_VERSION,
       passwordHash: "x:00",
       createdAt: this.now(),
+      emailVerifiedAt: this.now(),
     });
   }
 }

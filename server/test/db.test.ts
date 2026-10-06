@@ -11,7 +11,7 @@ const url = process.env.TEST_DATABASE_URL;
 async function reset() {
   const c = new pg.Client({ connectionString: url });
   await c.connect();
-  await c.query("drop table if exists withdrawals, wallet_txs, results, entries, competitions, sessions, users cascade");
+  await c.query("drop table if exists email_tokens, withdrawals, wallet_txs, results, entries, competitions, sessions, users cascade");
   await c.end();
 }
 
@@ -30,8 +30,19 @@ describe.skipIf(!url)("postgres storage", () => {
       payload: { email: "k@b.mn", password: "password1", nickname: "Хасар", birthDate: "1990-01-01", acceptTerms: true },
     });
     const cookies = { session: reg.cookies.find((c) => c.name === "session")!.value };
+    // The link is used after the restart: unused links are stored too.
+    const verifyToken = new URL(reg.json().devLink).searchParams.get("token");
     await app.inject({ method: "POST", url: "/api/wallet/demo-topup", cookies, payload: { amount: 10000 } });
     await app.inject({ method: "POST", url: "/api/wallet/demo-topup", cookies, payload: { amount: 10000 } });
+    const unverified = await app.inject({ method: "POST", url: "/api/competitions/demo-1/enter", cookies });
+    expect(unverified.statusCode).toBe(403);
+    await app.close();
+
+    app = await start();
+    expect((await app.inject({ method: "POST", url: "/api/auth/verify", payload: { token: verifyToken } })).statusCode).toBe(200);
+    await app.close();
+    app = await start();
+    expect((await app.inject({ url: "/api/me", cookies })).json().user.emailVerified).toBe(true);
     const paid = await app.inject({ method: "POST", url: "/api/competitions/demo-1/enter", cookies });
     expect(paid.statusCode).toBe(200);
     const asked = await app.inject({
@@ -72,6 +83,7 @@ describe.skipIf(!url)("postgres storage", () => {
         url: "/api/auth/register",
         payload: { email: "a@b.mn", password: "password1", nickname: "Анар", birthDate: "1990-01-01", acceptTerms: true },
       });
+      await app.inject({ method: "POST", url: "/api/auth/verify", payload: { token: new URL(reg.json().devLink).searchParams.get("token") } });
       return { session: reg.cookies.find((c) => c.name === "session")!.value };
     })();
     await app.inject({ method: "POST", url: "/api/wallet/demo-topup", cookies: svc, payload: { amount: 5000 } });

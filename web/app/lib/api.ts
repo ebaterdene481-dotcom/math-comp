@@ -34,6 +34,8 @@ export interface User {
   email: string;
   nickname: string;
   isAdmin?: boolean;
+  /** Paying an entry fee or taking money out needs a confirmed email. */
+  emailVerified?: boolean;
 }
 
 export class ApiError extends Error {
@@ -77,10 +79,32 @@ export interface RegisterForm {
   nickname: string;
   birthDate: string;
   acceptTerms: boolean;
+  passwordConfirm: string;
 }
 
-export const register = (form: RegisterForm) =>
-  call<{ user: User }>("/api/auth/register", { method: "POST", body: JSON.stringify(form) });
+/** `devLink`: on the test server, the emailed link is also returned, as there may be no mail server. */
+type Sent = { devLink?: string };
+
+/** The verification link from the last registration on a test server, for the notice under the header. */
+export let registeredDevLink: string | undefined;
+
+export async function register(form: RegisterForm) {
+  const r = await call<{ user: User } & Sent>("/api/auth/register", { method: "POST", body: JSON.stringify(form) });
+  registeredDevLink = r.devLink;
+  return r;
+}
+
+export const verifyEmail = (token: string) =>
+  call<{ user: User }>("/api/auth/verify", { method: "POST", body: JSON.stringify({ token }) });
+
+export const resendVerification = () =>
+  call<{ ok: true } & Sent>("/api/auth/resend-verification", { method: "POST" });
+
+export const forgotPassword = (email: string) =>
+  call<{ ok: true } & Sent>("/api/auth/forgot", { method: "POST", body: JSON.stringify({ email }) });
+
+export const resetPassword = (token: string, password: string, passwordConfirm: string) =>
+  call<{ user: User }>("/api/auth/reset", { method: "POST", body: JSON.stringify({ token, password, passwordConfirm }) });
 
 export const logout = () => call<{ ok: true }>("/api/auth/logout", { method: "POST" });
 

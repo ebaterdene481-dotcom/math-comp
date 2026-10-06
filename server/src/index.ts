@@ -1,5 +1,6 @@
 import { buildApp } from "./app.js";
 import { Database } from "./db.js";
+import { logMailer, smtpMailer } from "./mail.js";
 
 const port = Number(process.env.PORT ?? 4000);
 const corsOrigin = process.env.WEB_ORIGIN ?? true;
@@ -16,6 +17,13 @@ if (!databaseUrl && process.env.NODE_ENV === "production")
 if (!databaseUrl) console.warn("No DATABASE_URL: data is kept in memory and lost on restart.");
 const db = databaseUrl ? await Database.connect(databaseUrl) : undefined;
 
-const app = await buildApp({ corsOrigin, demo, secureCookies, adminEmails, uploadDir, db });
+// Verification and password reset emails. Without SMTP_URL they are printed to the log.
+const smtpUrl = process.env.SMTP_URL;
+if (!smtpUrl && process.env.NODE_ENV === "production")
+  throw new Error("SMTP_URL is required in production: players need verification and password reset emails.");
+const mailer = smtpUrl ? smtpMailer(smtpUrl, process.env.MAIL_FROM ?? "5 секунд <no-reply@localhost>") : logMailer;
+const webOrigin = process.env.WEB_ORIGIN;
+
+const app = await buildApp({ corsOrigin, demo, secureCookies, adminEmails, uploadDir, db, mailer, webOrigin });
 await app.listen({ port, host: "0.0.0.0" });
 console.log(`game server listening on :${port}`);

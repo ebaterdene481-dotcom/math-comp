@@ -36,8 +36,16 @@ Product spec (Mongolian): https://claude.ai/code/artifact/ff93ef08-c8c2-4d56-9c1
   sample admin is admin@demo.mn / admin12345. Uploads go to `UPLOAD_DIR` (default ./uploads).
 - Profile page: account details, wallet balance, competitions played with best score and
   rank. Sign in from the header on every page.
-- Accounts: email + password, nickname, birth date (18+), terms acceptance; session in an
-  httpOnly cookie (only its SHA-256 is stored).
+- Accounts: email + password (typed twice), nickname, birth date (18+), terms acceptance;
+  session in an httpOnly cookie (only its SHA-256 is stored).
+- Email: after registering, a link (valid 24 h) confirms the email; paying an entry fee and
+  withdrawing wait until it is confirmed, and a notice under the header can send a new link.
+  "Нууц үгээ мартсан уу?" sends a reset link (valid 1 h); a new password signs the account
+  out everywhere else. Links are single-use and only their hashes are stored. Mail goes
+  through `SMTP_URL` (e.g. `smtps://user:pass@smtp.example.com:465`) from `MAIL_FROM`;
+  links point at `WEB_ORIGIN`. Without `SMTP_URL` the mail is printed to the server log
+  (the server refuses to start that way in production); with `DEMO_DATA=1` the link is
+  also shown on the page.
 - Storage: PostgreSQL via `DATABASE_URL`. Tables are created on start-up. The rules run in
   memory and every change is written to the database before the response goes out, so a
   restart or redeploy loses nothing. One server process per database. A paid run that was
@@ -50,8 +58,7 @@ Product spec (Mongolian): https://claude.ai/code/artifact/ff93ef08-c8c2-4d56-9c1
   admin page («Мөнгө татах») an admin sends it by bank transfer and marks it paid, or
   rejects it with a reason and the money goes back to the wallet.
 
-Not built yet: real payment (QPay), admin user management and
-withdrawal approval. Sample competition
+Not built yet: real payment (QPay) and admin user management. Sample competition
 data loads when `DEMO_DATA=1` (on by default outside production).
 
 ## Layout
@@ -87,6 +94,9 @@ web/      Next.js front end
 ```bash
 npm install
 export DATABASE_URL=postgres://user:pass@localhost:5432/mathcomp   # optional in development
+export SMTP_URL=smtps://user:pass@smtp.example.com:465               # optional; else mail goes to the log
+export MAIL_FROM="5 секунд <no-reply@example.mn>"
+export WEB_ORIGIN=http://localhost:3000                                # address used in emailed links
 npm run dev:server        # game server on :4000
 npm run dev:web           # web on :3000
 ```

@@ -136,4 +136,27 @@ describe("competition edits after payment", () => {
     expect(s.balance("a")).toBe(100000);
     expect(s.wallet("a").transactions[0]).toMatchObject({ kind: "prize", amount: 100000 });
   });
+
+  it("works out the prize fund from the admin's share of the fees", () => {
+    const now = new Date("2026-10-06T00:00:00Z");
+    const s = new CompetitionService(() => now, () => "x");
+    expect(() =>
+      s.createCompetition({ name: "Тэмцээн", prize: "Мөнгө", entryFee: 5000, prizeShare: 150, opensAt: now.toISOString(), closesAt: new Date(now.getTime() + 3600_000).toISOString() }),
+    ).toThrow(/1–100%/);
+    const c = s.createCompetition({
+      name: "Тэмцээн",
+      prize: "Мөнгөн шагнал",
+      entryFee: 5000,
+      prizeShare: 60,
+      opensAt: new Date(now.getTime() - 60_000).toISOString(),
+      closesAt: new Date(now.getTime() + 3600_000).toISOString(),
+    });
+    expect(s.publicCompetition(c)).toMatchObject({ prizeShare: 60, prizeFund: 0 });
+    s.demoTopUp("u", 15000);
+    s.enter("u", c.id);
+    s.enter("u", c.id);
+    s.enter("u", c.id);
+    expect(s.publicCompetition(c).prizeFund).toBe(9000);
+    expect(() => s.updateCompetition(c.id, { prizeShare: 80 })).toThrow(/хувь/);
+  });
 });

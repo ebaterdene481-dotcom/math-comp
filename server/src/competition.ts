@@ -14,6 +14,8 @@ export interface Competition {
   prize: string;
   /** Photo of the prize shown on the home page (URL). */
   prizeImage?: string;
+  /** Percent of the fees collected that goes to the winner in cash; unset when the prize is goods. */
+  prizeShare?: number;
   maxAttempts: number;
   /** Paid attempt slots taken so far (all players combined). */
   attemptsUsed: number;
@@ -76,4 +78,9 @@ export function currentCompetition(all: Competition[], now: Date): Competition |
   const upcoming = by("upcoming").sort((a, b) => a.opensAt.getTime() - b.opensAt.getTime());
   if (upcoming.length) return upcoming[0];
   return by("finished").sort((a, b) => b.closesAt.getTime() - a.closesAt.getTime())[0];
+}
+
+/** Cash the winner gets: the admin's share of the fees taken so far, whole tugrik. */
+export function prizeFund(c: Competition): number {
+  return Math.floor((Math.min(c.attemptsUsed, c.maxAttempts) * c.entryFee * (c.prizeShare ?? 0)) / 100);
 }

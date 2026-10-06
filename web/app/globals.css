@@ -439,6 +439,16 @@ a {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* A second paid attempt sits under the start and details buttons. */
+.join-row > .btn.join-extra {
+  grid-column: 1 / -1;
+  order: 1;
+}
+
+.join .join-extra {
+  margin-top: 8px;
+}
+
 .join-row .fee {
   margin-left: 0.3em;
 }
@@ -1743,6 +1753,10 @@ a {
   color: var(--red);
 }
 
+.comp-facts small.fund {
+  color: var(--ink-soft);
+}
+
 /* Keep the 100 dots the same size as on the home card. */
 .comp-body .slots {
   max-width: 380px;
@@ -2651,4 +2665,11 @@ a {
   .status-live::before {
     animation: none;
   }
+}
+
+.admin-fields label .meta {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--ink-soft);
 }

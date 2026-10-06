@@ -16,6 +16,10 @@ export interface CompetitionInfo {
   prizeImage: string | null;
   maxAttempts: number;
   attemptsUsed: number;
+  /** Percent of fees paid to the winner in cash; null when the prize is goods. */
+  prizeShare: number | null;
+  /** Cash prize so far, from that share of the fees taken. */
+  prizeFund: number | null;
 }
 
 export interface Leader {
@@ -199,6 +203,8 @@ export interface CompetitionForm {
   name: string;
   prize: string;
   prizeImage?: string;
+  /** Percent of fees that go to the winner; empty when the prize is goods. */
+  prizeShare?: number | "";
   entryFee: number;
   maxAttempts: number;
   opensAt: string;

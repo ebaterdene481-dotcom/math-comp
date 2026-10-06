@@ -9,7 +9,7 @@ import {
   leaderboard,
   statusOf,
 } from "./competition.js";
-import { MAX_ATTEMPTS } from "./competition.js";
+import { MAX_ATTEMPTS, prizeFund } from "./competition.js";
 import { ATTEMPT_PER_LEVEL, type Problem, generateProblems } from "./problems.js";
 
 /** After paying, a player has this long to start the attempt. */
@@ -106,6 +106,8 @@ export class CompetitionService {
       prizeImage: c.prizeImage ?? null,
       maxAttempts: c.maxAttempts,
       attemptsUsed: Math.min(c.attemptsUsed, c.maxAttempts),
+      prizeShare: c.prizeShare ?? null,
+      prizeFund: c.prizeShare ? prizeFund(c) : null,
     };
   }
 
@@ -153,8 +155,6 @@ export class CompetitionService {
     if (status === "upcoming") throw new ServiceError("not_open", "Тэмцээн хараахан эхлээгүй байна.");
     if (status === "finished") throw new ServiceError("closed", "Тэмцээн хаагдсан байна.");
     this.expireStale();
-    if (this.entries.some((e) => e.userId === userId && (e.status === "paid" || e.status === "playing")))
-      throw new ServiceError("open_entry", "Эхлээгүй эсвэл дуусаагүй оролдлого байна. Эхлээд түүнийгээ бодоорой.");
     const balance = this.balance(userId);
     if (balance < c.entryFee)
       throw new ServiceError("insufficient_funds", "Хэтэвчинд мөнгө хүрэлцэхгүй байна.", {
@@ -277,6 +277,7 @@ export class CompetitionService {
     const prize = text(raw.prize);
     const prizeImage = text(raw.prizeImage) || undefined;
     const entryFee = Number(raw.entryFee);
+    const prizeShare = raw.prizeShare === undefined || raw.prizeShare === null || raw.prizeShare === "" ? undefined : Number(raw.prizeShare);
     const maxAttempts = raw.maxAttempts === undefined ? MAX_ATTEMPTS : Number(raw.maxAttempts);
     const opensAt = new Date(text(raw.opensAt));
     const closesAt = new Date(text(raw.closesAt));
@@ -286,10 +287,12 @@ export class CompetitionService {
       throw new ServiceError("fee_invalid", "Хураамж 0–1 000 000₮ бүхэл тоо байна.");
     if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 1000)
       throw new ServiceError("attempts_invalid", "Оролдлогын тоо 1–1000 байна.");
+    if (prizeShare !== undefined && (!Number.isInteger(prizeShare) || prizeShare < 1 || prizeShare > 100))
+      throw new ServiceError("share_invalid", "Шагналын сан хураамжийн 1–100% бүхэл тоо байна.");
     if (Number.isNaN(opensAt.getTime()) || Number.isNaN(closesAt.getTime()))
       throw new ServiceError("dates_invalid", "Эхлэх, хаагдах цагаа оруулна уу.");
     if (closesAt <= opensAt) throw new ServiceError("dates_order", "Хаагдах цаг эхлэх цагаас хойно байна.");
-    return { name, prize, prizeImage, entryFee, maxAttempts, opensAt, closesAt };
+    return { name, prize, prizeImage, prizeShare, entryFee, maxAttempts, opensAt, closesAt };
   }
 
   createCompetition(raw: Record<string, unknown>) {
@@ -301,8 +304,8 @@ export class CompetitionService {
   }
 
   /**
-   * Edits a competition. Once someone has paid, the fee, the attempt count and the
-   * opening time are fixed: players paid under those terms.
+   * Edits a competition. Once someone has paid, the fee, the prize share, the attempt
+   * count and the opening time are fixed: players paid under those terms.
    */
   updateCompetition(id: string, raw: Record<string, unknown>) {
     const c = this.competition(id);
@@ -312,11 +315,12 @@ export class CompetitionService {
       const locked =
         input.entryFee !== c.entryFee ||
         input.maxAttempts !== c.maxAttempts ||
+        input.prizeShare !== c.prizeShare ||
         input.opensAt.getTime() !== c.opensAt.getTime();
       if (locked)
         throw new ServiceError(
           "locked",
-          "Төлбөр төлсөн оролцогч байгаа тул хураамж, оролдлогын тоо, эхлэх цагийг өөрчлөх боломжгүй.",
+          "Төлбөр төлсөн оролцогч байгаа тул хураамж, шагналын сангийн хувь, оролдлогын тоо, эхлэх цагийг өөрчлөх боломжгүй.",
         );
       if (input.closesAt <= this.now()) throw new ServiceError("dates_past", "Хаагдах цаг өнгөрсөн байна.");
     }
@@ -337,6 +341,7 @@ export class CompetitionService {
       name: c.name,
       prize: c.prize,
       prizeImage: c.prizeImage,
+      prizeShare: c.prizeShare,
       entryFee: c.entryFee,
       maxAttempts: c.maxAttempts,
       opensAt: c.opensAt.toISOString(),

@@ -145,7 +145,14 @@ function CompetitionView({
               <dl className="comp-facts">
                 <div>
                   <dt>Шагнал</dt>
-                  <dd>{c.prize}</dd>
+                  <dd>
+                    {c.prize}
+                    {c.prizeFund !== null && (
+                      <small className="fund">
+                        Одоогийн сан <span className="num">{groupDigits(c.prizeFund)}₮</span> (хураамжийн {c.prizeShare}%)
+                      </small>
+                    )}
+                  </dd>
                 </div>
                 <div>
                   <dt>Хураамж</dt>

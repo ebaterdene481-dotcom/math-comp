@@ -287,6 +287,7 @@ function CompetitionEditor({
           name: c.name,
           prize: c.prize,
           prizeImage: c.prizeImage ?? undefined,
+          prizeShare: c.prizeShare ?? undefined,
           entryFee: c.entryFee,
           maxAttempts: c.maxAttempts,
           opensAt: toLocalInput(c.opensAt),
@@ -339,6 +340,7 @@ function CompetitionEditor({
     const payload = {
       ...form,
       prizeImage: form.prizeImage ?? "",
+      prizeShare: form.prizeShare ?? "",
       opensAt: new Date(form.opensAt).toISOString(),
       closesAt: new Date(form.closesAt).toISOString(),
     };
@@ -389,6 +391,24 @@ function CompetitionEditor({
           <label>
             <span className="field-label">Шагнал</span>
             <input value={form.prize} onChange={(e) => set("prize", e.target.value)} required maxLength={80} />
+          </label>
+          <label>
+            <span className="field-label">Шагналын сан (хураамжийн %)</span>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              placeholder="Бараа бол хоосон үлдээнэ"
+              value={form.prizeShare ?? ""}
+              onChange={(e) => set("prizeShare", e.target.value === "" ? undefined : Number(e.target.value))}
+              disabled={locked}
+            />
+            {form.prizeShare ? (
+              <span className="meta">
+                {form.maxAttempts} оролдлого бүгд зарагдвал ялагч{" "}
+                {groupDigits(Math.floor((form.maxAttempts * form.entryFee * Number(form.prizeShare)) / 100))}₮ авна.
+              </span>
+            ) : null}
           </label>
           <div className="field-row">
             <label>
@@ -477,7 +497,7 @@ function Awards({ list, reload }: { list: AdminCompetition[]; reload: () => Prom
 }
 
 function AwardRow({ c, reload }: { c: AdminCompetition; reload: () => Promise<void> }) {
-  const [cash, setCash] = useState(0);
+  const [cash, setCash] = useState(c.prizeFund ?? 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

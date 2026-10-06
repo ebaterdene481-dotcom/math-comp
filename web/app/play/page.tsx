@@ -28,16 +28,22 @@ function StartBy({ iso }: { iso: string }) {
   );
 }
 
-type Load = { kind: "loading" } | { kind: "signed-out" } | { kind: "none" } | { kind: "ok"; entry: Entry };
+type Load = { kind: "loading" } | { kind: "signed-out" } | { kind: "none" } | { kind: "ok"; entry: Entry; waiting: number };
 
-/** The paid 100-problem run. One open entry at a time, so the page just picks it up. */
+/**
+ * The paid 100-problem run. A player may hold several paid entries; the page picks up
+ * the one already under way, else the one whose start window ends soonest.
+ */
 export default function Play() {
   const [state, setState] = useState<Load>({ kind: "loading" });
   const [started, setStarted] = useState(false);
 
   const load = useCallback(() => {
     getOpenEntries()
-      .then(({ entries }) => setState(entries[0] ? { kind: "ok", entry: entries[0] } : { kind: "none" }))
+      .then(({ entries }) => {
+        const entry = entries.find((e) => e.status === "playing") ?? entries[0];
+        setState(entry ? { kind: "ok", entry, waiting: entries.length - 1 } : { kind: "none" });
+      })
       .catch((e) => setState(e instanceof ApiError && e.code === "signed_out" ? { kind: "signed-out" } : { kind: "none" }));
   }, []);
 
@@ -87,6 +93,12 @@ export default function Play() {
               <p>
                 Эхлүүлэх хугацаа үлдсэн: <StartBy iso={state.entry.startBy} />
               </p>
+              {state.waiting > 0 && (
+                <p className="meta">
+                  Үүний дараа дахиад {state.waiting} төлсөн оролдлого хүлээж байна. Тус бүрийг төлснөөс хойш 15 минутын
+                  дотор эхлүүлнэ.
+                </p>
+              )}
               <ul className="rules">
                 <li>5 шат, шат бүрт 20 бодлого. Бодлого бүрт 5 секунд.</li>
                 <li>0.5 секундэд зөв хариулбал 100 оноо, удах тусам буурна.</li>

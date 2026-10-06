@@ -1,4 +1,4 @@
-// Competition state. Kept in memory for now; moves to PostgreSQL with the wallet phase.
+// Competition state and leaderboard order. Stored in PostgreSQL by db.ts.
 
 export const MAX_ATTEMPTS = 100;
 

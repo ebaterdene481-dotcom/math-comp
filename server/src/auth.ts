@@ -1,7 +1,7 @@
-// Accounts and sessions. In memory until the database lands; the rules
-// (age 18+, terms accepted, unique email and nickname) are the real ones.
+// Accounts and sessions: age 18+, terms accepted, unique email and nickname.
+// Held in memory and written through to the database when the server has one.
 
-import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
@@ -76,9 +76,27 @@ async function checkPassword(pw: string, stored: string): Promise<boolean> {
   return expected.length === key.length && timingSafeEqual(key, expected);
 }
 
+export interface Session {
+  /** SHA-256 of the cookie value, so a leaked database cannot be used to sign in. */
+  tokenHash: string;
+  userId: string;
+  expires: Date;
+}
+
+/** Where accounts and sessions are written so they survive a restart. */
+export interface AuthPersist {
+  user(u: User): void;
+  session(s: Session): void;
+  endSession(tokenHash: string): void;
+}
+
+const IN_MEMORY: AuthPersist = { user() {}, session() {}, endSession() {} };
+
+const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
+
 export class AuthStore {
   private users = new Map<string, User>();
-  private sessions = new Map<string, { userId: string; expires: number }>();
+  private sessions = new Map<string, Session>();
   static readonly SESSION_MS = 30 * 24 * 3600 * 1000;
 
   /** Admins are named by email (ADMIN_EMAILS), so no one can make themselves one. */
@@ -87,8 +105,21 @@ export class AuthStore {
   constructor(
     private readonly now: () => Date = () => new Date(),
     adminEmails: string[] = [],
+    private readonly persist: AuthPersist = IN_MEMORY,
   ) {
     this.adminEmails = new Set(adminEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
+  }
+
+  /** Puts back what the database holds, on start-up. Expired sessions are dropped. */
+  load(users: User[], sessions: Session[]) {
+    for (const u of users) this.users.set(u.id, u);
+    const now = this.now().getTime();
+    for (const s of sessions) if (s.expires.getTime() >= now) this.sessions.set(s.tokenHash, s);
+  }
+
+  /** Writes every account, e.g. freshly seeded demo players. */
+  saveAll() {
+    for (const u of this.users.values()) this.persist.user(u);
   }
 
   isAdmin(user: User) {
@@ -135,6 +166,7 @@ export class AuthStore {
       createdAt: this.now(),
     };
     this.users.set(user.id, user);
+    this.persist.user(user);
     return user;
   }
 
@@ -148,19 +180,23 @@ export class AuthStore {
 
   createSession(userId: string): string {
     const token = randomBytes(32).toString("base64url");
-    this.sessions.set(token, { userId, expires: this.now().getTime() + AuthStore.SESSION_MS });
+    const s: Session = { tokenHash: hashToken(token), userId, expires: new Date(this.now().getTime() + AuthStore.SESSION_MS) };
+    this.sessions.set(s.tokenHash, s);
+    this.persist.session(s);
     return token;
   }
 
   userForSession(token: string | undefined): User | undefined {
     if (!token) return undefined;
-    const s = this.sessions.get(token);
-    if (!s || s.expires < this.now().getTime()) return undefined;
+    const s = this.sessions.get(hashToken(token));
+    if (!s || s.expires.getTime() < this.now().getTime()) return undefined;
     return this.users.get(s.userId);
   }
 
   endSession(token: string | undefined) {
-    if (token) this.sessions.delete(token);
+    if (!token) return;
+    const h = hashToken(token);
+    if (this.sessions.delete(h)) this.persist.endSession(h);
   }
 
   getUser(id: string) {

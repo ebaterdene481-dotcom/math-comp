@@ -15,7 +15,8 @@ import { ATTEMPT_PER_LEVEL, type Problem, generateProblems } from "./problems.js
 /** After paying, a player has this long to start the attempt. */
 export const START_WINDOW_MS = 15 * 60_000;
 
-export type EntryStatus = "paid" | "playing" | "finished" | "expired";
+/** "refunded": the server restarted mid-run, so the fee went back to the wallet. */
+export type EntryStatus = "paid" | "playing" | "finished" | "expired" | "refunded";
 
 export interface Entry {
   id: string;
@@ -27,7 +28,7 @@ export interface Entry {
   points?: number;
 }
 
-export type TxKind = "topup" | "entry" | "prize" | "withdraw";
+export type TxKind = "topup" | "entry" | "prize" | "withdraw" | "refund";
 
 export interface WalletTx {
   id: string;
@@ -51,6 +52,26 @@ export class ServiceError extends Error {
 
 const newId = () => globalThis.crypto.randomUUID();
 
+/**
+ * Where changes are written so they survive a restart. The server passes the
+ * database; the browser preview and unit tests keep everything in memory.
+ */
+export interface ServicePersist {
+  competition(c: Competition): void;
+  deleteCompetition(id: string): void;
+  entry(e: Entry): void;
+  result(r: AttemptResult): void;
+  tx(t: WalletTx): void;
+}
+
+const IN_MEMORY: ServicePersist = {
+  competition() {},
+  deleteCompetition() {},
+  entry() {},
+  result() {},
+  tx() {},
+};
+
 export class CompetitionService {
   readonly competitions: Competition[] = [];
   readonly results: AttemptResult[] = [];
@@ -60,7 +81,50 @@ export class CompetitionService {
   constructor(
     private readonly now: () => Date,
     private readonly nicknameOf: (userId: string) => string | undefined,
+    private readonly persist: ServicePersist = IN_MEMORY,
   ) {}
+
+  /** Puts back what the database holds, on start-up. */
+  load(data: { competitions: Competition[]; results: AttemptResult[]; entries: Entry[]; txs: WalletTx[] }) {
+    this.competitions.push(...data.competitions);
+    this.results.push(...data.results);
+    this.entries.push(...data.entries);
+    this.txs.push(...data.txs);
+  }
+
+  /** Writes everything currently held, e.g. freshly seeded demo data. */
+  saveAll() {
+    for (const c of this.competitions) this.persist.competition(c);
+    for (const r of this.results) this.persist.result(r);
+    for (const e of this.entries) this.persist.entry(e);
+    for (const t of this.txs) this.persist.tx(t);
+  }
+
+  /**
+   * Runs under way when the server stopped cannot be finished: their problems and
+   * clock were in memory. The player gets the fee back and the slot is freed.
+   */
+  refundInterrupted() {
+    let n = 0;
+    for (const e of this.entries) {
+      if (e.status !== "playing") continue;
+      const c = this.competition(e.competitionId);
+      e.status = "refunded";
+      c.attemptsUsed = Math.max(0, c.attemptsUsed - 1);
+      this.addTx({ userId: e.userId, kind: "refund", amount: c.entryFee, note: `${c.name}: сервер дахин ассан тул буцаасан` });
+      this.persist.entry(e);
+      this.persist.competition(c);
+      n++;
+    }
+    return n;
+  }
+
+  private addTx(t: Omit<WalletTx, "id" | "at"> & { at?: Date }) {
+    const tx: WalletTx = { id: newId(), at: this.now(), ...t };
+    this.txs.push(tx);
+    this.persist.tx(tx);
+    return tx;
+  }
 
   // Wallet
 
@@ -83,7 +147,7 @@ export class CompetitionService {
   demoTopUp(userId: string, amount: number) {
     if (!Number.isInteger(amount) || amount <= 0 || amount > 100_000)
       throw new ServiceError("amount_invalid", "Дүн буруу байна.");
-    this.txs.push({ id: newId(), userId, kind: "topup", amount, at: this.now(), note: "Туршилтын цэнэглэлт" });
+    this.addTx({ userId, kind: "topup", amount, note: "Туршилтын цэнэглэлт" });
   }
 
   // Competitions
@@ -175,7 +239,9 @@ export class CompetitionService {
     };
     c.attemptsUsed++;
     this.entries.push(entry);
-    this.txs.push({ id: newId(), userId, kind: "entry", amount: -c.entryFee, at: paidAt, note: c.name });
+    this.addTx({ userId, kind: "entry", amount: -c.entryFee, at: paidAt, note: c.name });
+    this.persist.competition(c);
+    this.persist.entry(entry);
     return entry;
   }
 
@@ -213,6 +279,7 @@ export class CompetitionService {
     if (e.status === "expired") throw new ServiceError("expired", "Эхлэх хугацаа дууссан байна.");
     if (e.status !== "paid") throw new ServiceError("used", "Энэ оролдлогыг аль хэдийн эхлүүлсэн байна.");
     e.status = "playing";
+    this.persist.entry(e);
     return generateProblems(ATTEMPT_PER_LEVEL, seed);
   }
 
@@ -221,7 +288,10 @@ export class CompetitionService {
     if (!e || e.status !== "playing") return;
     e.status = "finished";
     e.points = points;
-    this.results.push({ competitionId: e.competitionId, userId: e.userId, points, finishedAt: this.now() });
+    const r: AttemptResult = { competitionId: e.competitionId, userId: e.userId, points, finishedAt: this.now() };
+    this.results.push(r);
+    this.persist.entry(e);
+    this.persist.result(r);
   }
 
   /** Rank and field size for one player, after an attempt. */
@@ -234,7 +304,11 @@ export class CompetitionService {
 
   private expireStale() {
     const t = this.now().getTime();
-    for (const e of this.entries) if (e.status === "paid" && e.startBy.getTime() < t) e.status = "expired";
+    for (const e of this.entries)
+      if (e.status === "paid" && e.startBy.getTime() < t) {
+        e.status = "expired";
+        this.persist.entry(e);
+      }
   }
 
   // Profile
@@ -302,6 +376,7 @@ export class CompetitionService {
     if (input.closesAt <= this.now()) throw new ServiceError("dates_past", "Хаагдах цаг өнгөрсөн байна.");
     const c: Competition = { id: newId(), ...input, attemptsUsed: 0 };
     this.competitions.push(c);
+    this.persist.competition(c);
     return c;
   }
 
@@ -327,6 +402,7 @@ export class CompetitionService {
       if (input.closesAt <= this.now()) throw new ServiceError("dates_past", "Хаагдах цаг өнгөрсөн байна.");
     }
     Object.assign(c, input);
+    this.persist.competition(c);
     return c;
   }
 
@@ -336,6 +412,7 @@ export class CompetitionService {
     if (c.attemptsUsed > 0)
       throw new ServiceError("has_entries", "Төлбөр төлсөн оролцогчтой тэмцээнийг устгах боломжгүй.");
     this.competitions.splice(this.competitions.indexOf(c), 1);
+    this.persist.deleteCompetition(id);
   }
 
   private editable(c: Competition) {
@@ -362,7 +439,8 @@ export class CompetitionService {
     const w = this.standings(id)[0];
     if (!w) throw new ServiceError("no_winner", "Энэ тэмцээнд оноо авсан оролцогч алга.");
     c.award = { userId: w.userId, nickname: w.nickname, points: w.points, at: this.now(), cash };
-    if (cash > 0) this.txs.push({ id: newId(), userId: w.userId, kind: "prize", amount: cash, at: this.now(), note: c.name });
+    if (cash > 0) this.addTx({ userId: w.userId, kind: "prize", amount: cash, note: c.name });
+    this.persist.competition(c);
     return c.award;
   }
 

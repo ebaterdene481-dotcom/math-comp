@@ -1,15 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { AuthDialog } from "./AuthDialog";
+import { EnterDialog } from "./EnterDialog";
 import {
   type CompetitionInfo,
+  type Entry,
   type Leader,
   type User,
   fmtPoints,
   fmtWhen,
   getCurrentCompetition,
   getMe,
+  getOpenEntries,
   groupDigits,
   logout,
   AUTH_EVENT,
@@ -38,7 +42,8 @@ export function CompetitionBoard() {
   const [data, setData] = useState<Load>({ state: "loading" });
   const [user, setUser] = useState<User | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
+  const [enterOpen, setEnterOpen] = useState(false);
+  const [openEntry, setOpenEntry] = useState<Entry | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -53,7 +58,11 @@ export function CompetitionBoard() {
     refresh();
     const loadMe = () =>
       getMe()
-        .then((r) => setUser(r.user))
+        .then((r) => {
+          setUser(r.user);
+          if (!r.user) return setOpenEntry(null);
+          return getOpenEntries().then((e) => setOpenEntry(e.entries[0] ?? null));
+        })
         .catch(() => {});
     loadMe();
     window.addEventListener(AUTH_EVENT, loadMe);
@@ -139,12 +148,13 @@ export function CompetitionBoard() {
                 Оролцох
               </button>
             )}
-            {c.status === "live" && user && (
-              <button
-                className="btn"
-                type="button"
-                onClick={() => setNote("Төлбөр төлөх хэсэг удахгүй нэмэгдэнэ.")}
-              >
+            {user && openEntry && (
+              <Link href="/play" className="btn">
+                {openEntry.status === "playing" ? "Оролдлогоо үргэлжлүүлэх" : "Оролдлогоо эхлүүлэх"}
+              </Link>
+            )}
+            {c.status === "live" && user && !openEntry && (
+              <button className="btn" type="button" onClick={() => setEnterOpen(true)}>
                 Оролцох: <span className="fee">{groupDigits(c.entryFee)}₮</span>
               </button>
             )}
@@ -158,11 +168,9 @@ export function CompetitionBoard() {
                 Ялагч: <b>{data.leaders[0].nickname}</b>
               </p>
             )}
-            {note && (
-              <p className="meta" role="status">
-                {note}
-              </p>
-            )}
+            <Link href="/leaderboard" className="link all-leaders">
+              Бүх тэргүүлэгчид
+            </Link>
             {user && (
               <p className="signed-in">
                 {user.nickname} нэрээр нэвтэрсэн.{" "}
@@ -172,7 +180,7 @@ export function CompetitionBoard() {
                   onClick={async () => {
                     await logout().catch(() => {});
                     setUser(null);
-                    setNote(null);
+                    setOpenEntry(null);
                     announceAuthChange();
                   }}
                 >
@@ -184,6 +192,17 @@ export function CompetitionBoard() {
         </>
       )}
 
+      {c && (
+        <EnterDialog
+          competition={c}
+          open={enterOpen}
+          onClose={() => setEnterOpen(false)}
+          onEntered={(e) => {
+            setOpenEntry(e);
+            refresh();
+          }}
+        />
+      )}
       <AuthDialog
         open={authOpen}
         onClose={() => setAuthOpen(false)}

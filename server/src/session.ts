@@ -34,7 +34,18 @@ export type ServerMessage =
   | { type: "correct"; points: number; elapsedMs: number }
   | { type: "timeout"; answer: number }
   | { type: "finished"; totalPoints: number; results: ProblemResult[] }
-  | { type: "ping"; id: number };
+  | { type: "ping"; id: number }
+  | { type: "progress"; progress: Progress };
+
+/** Running totals for the stats beside the problem, re-sent to a player who reconnects. */
+export interface Progress {
+  points: number;
+  correct: number;
+  ended: number;
+  wrong: number;
+  streak: number;
+  times: number[];
+}
 
 export type ClientMessage = { type: "answer"; value: string } | { type: "pong"; id: number };
 
@@ -56,6 +67,7 @@ export class GameSession {
   private state: State = "idle";
   private index = -1;
   private sentAt = 0;
+  private countdownEndsAt = 0;
   private credit = 0;
   private timer: unknown = null;
   private pingTimer: unknown = null;
@@ -88,11 +100,50 @@ export class GameSession {
     this.ping();
     if (this.countdownMs > 0) {
       this.state = "gap";
+      this.countdownEndsAt = this.clock.now() + this.countdownMs;
       this.send({ type: "countdown", ms: this.countdownMs });
       this.timer = this.clock.setTimeout(() => this.sendProblem(), this.countdownMs);
       return;
     }
     this.scheduleNext();
+  }
+
+  /**
+   * Re-sends where the run stands, for a player who reconnected. The clock never
+   * paused, so the problem goes out with only the time that is left.
+   */
+  resync() {
+    const t = this.clock.now();
+    const ended = this.state === "active" ? this.index : this.index + 1;
+    if (ended > 0 || this.results[Math.max(0, this.index)]?.wrongTries) {
+      const done = this.results.slice(0, ended);
+      let streak = 0;
+      for (const r of done) streak = r.solved ? streak + 1 : 0;
+      this.send({
+        type: "progress",
+        progress: {
+          points: done.reduce((a, r) => a + r.points, 0),
+          correct: done.filter((r) => r.solved).length,
+          ended,
+          wrong: this.results.slice(0, ended + 1).reduce((a, r) => a + r.wrongTries, 0),
+          streak,
+          times: done.filter((r) => r.solved).map((r) => r.elapsedMs!),
+        },
+      });
+    }
+    if (this.state === "gap" && this.index === -1 && this.countdownEndsAt > t) {
+      this.send({ type: "countdown", ms: this.countdownEndsAt - t });
+    } else if (this.state === "active") {
+      const p = this.problems[this.index];
+      this.send({
+        type: "problem",
+        index: this.index,
+        total: this.problems.length,
+        level: p.level,
+        text: p.text,
+        timeLimitMs: Math.max(0, TIME_LIMIT_MS - (t - this.sentAt)),
+      });
+    }
   }
 
   /** Stops all timers, e.g. when the connection closes. */

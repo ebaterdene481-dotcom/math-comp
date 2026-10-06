@@ -5,14 +5,8 @@ import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import { PRACTICE_PER_LEVEL, generateProblems } from "./problems.js";
 import { AuthError, AuthStore, toPublic } from "./auth.js";
-import {
-  type AttemptResult,
-  type Competition,
-  currentCompetition,
-  leaderboard,
-  statusOf,
-} from "./competition.js";
 import { seedDemo } from "./demo.js";
+import { CompetitionService, ServiceError } from "./service.js";
 import { COUNTDOWN_MS, GameSession, type ClientMessage, type Clock, systemClock } from "./session.js";
 
 /** Practice runs one IP may start per hour (protects the server, not the score). */
@@ -53,40 +47,83 @@ export async function buildApp(opts: AppOptions = {}) {
 
   const now = opts.now ?? (() => new Date());
   const auth = new AuthStore(now);
-  const competitions: Competition[] = [];
-  const results: AttemptResult[] = [];
+  const service = new CompetitionService(now, (id) => auth.getUser(id)?.nickname);
   if (opts.demo) {
-    const demo = seedDemo(auth, now());
-    competitions.push(...demo.competitions);
-    results.push(...demo.results);
+    const demo = seedDemo((id, nickname) => auth.addDemoUser(id, nickname), now());
+    service.competitions.push(...demo.competitions);
+    service.results.push(...demo.results);
   }
 
-  app.get("/api/competitions/current", async () => {
-    const c = currentCompetition(competitions, now());
-    if (!c) return { competition: null, leaders: [] };
-    const leaders = leaderboard(results, c.id)
-      .slice(0, 3)
-      .map((l, i) => ({
-        rank: i + 1,
-        nickname: auth.getUser(l.userId)?.nickname ?? "?",
-        points: l.points,
-      }));
-    return {
-      competition: {
-        id: c.id,
-        name: c.name,
-        status: statusOf(c, now()),
-        opensAt: c.opensAt.toISOString(),
-        closesAt: c.closesAt.toISOString(),
-        entryFee: c.entryFee,
-        prize: c.prize,
-        prizeImage: c.prizeImage ?? null,
-        maxAttempts: c.maxAttempts,
-        attemptsUsed: Math.min(c.attemptsUsed, c.maxAttempts),
-      },
-      leaders,
+  /** The signed-in user, or a 401 already sent. */
+  const requireUser = (req: FastifyRequest, reply: FastifyReply) => {
+    const user = auth.userForSession(req.cookies[SESSION_COOKIE]);
+    if (!user) reply.code(401).send({ error: "signed_out", message: "Нэвтэрнэ үү." });
+    return user;
+  };
+
+  /** Turns rule violations from the service into 400s with their Mongolian message. */
+  const guarded =
+    <T>(fn: (req: FastifyRequest, reply: FastifyReply) => T | Promise<T>) =>
+    async (req: FastifyRequest, reply: FastifyReply) => {
+      try {
+        return await fn(req, reply);
+      } catch (e) {
+        if (e instanceof ServiceError)
+          return reply.code(e.code === "not_found" ? 404 : 400).send({ error: e.code, message: e.message, ...e.extra });
+        throw e;
+      }
     };
+
+  app.get("/api/competitions/current", async () => {
+    const { competition, leaders } = service.current();
+    return { competition, leaders: leaders.map(({ rank, nickname, points }) => ({ rank, nickname, points })) };
   });
+
+  app.get(
+    "/api/competitions/:id/standings",
+    guarded((req) => {
+      const { id } = req.params as { id: string };
+      const c = service.competition(id);
+      const me = auth.userForSession(req.cookies[SESSION_COOKIE]);
+      return {
+        competition: service.publicCompetition(c),
+        standings: service.standings(id).map(({ userId, ...row }) => ({ ...row, you: userId === me?.id })),
+      };
+    }),
+  );
+
+  app.post(
+    "/api/competitions/:id/enter",
+    guarded((req, reply) => {
+      const user = requireUser(req, reply);
+      if (!user) return;
+      const entry = service.enter(user.id, (req.params as { id: string }).id);
+      return { entry: service.publicEntry(entry), balance: service.balance(user.id) };
+    }),
+  );
+
+  app.get("/api/me/entries", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!user) return;
+    return { entries: service.openEntries(user.id) };
+  });
+
+  app.get("/api/wallet", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!user) return;
+    return { ...service.wallet(user.id), demoTopUp: Boolean(opts.demo) };
+  });
+
+  app.post(
+    "/api/wallet/demo-topup",
+    guarded((req, reply) => {
+      if (!opts.demo) return reply.code(404).send({ error: "not_found" });
+      const user = requireUser(req, reply);
+      if (!user) return;
+      service.demoTopUp(user.id, Number((req.body as { amount?: unknown })?.amount));
+      return service.wallet(user.id);
+    }),
+  );
 
   const triesByIp = new Map<string, number[]>();
   const allowAuthTry = (ip: string) => {
@@ -151,46 +188,93 @@ export async function buildApp(opts: AppOptions = {}) {
   });
 
   app.get("/api/me/profile", async (req, reply) => {
-    const user = auth.userForSession(req.cookies[SESSION_COOKIE]);
-    if (!user) return reply.code(401).send({ error: "signed_out", message: "Нэвтэрнэ үү." });
-
-    const mine = results.filter((r) => r.userId === user.id);
-    const history = competitions
-      .filter((c) => mine.some((r) => r.competitionId === c.id))
-      .map((c) => {
-        const board = leaderboard(results, c.id);
-        const rank = board.findIndex((l) => l.userId === user.id) + 1;
-        const own = mine.filter((r) => r.competitionId === c.id);
-        return {
-          competitionId: c.id,
-          name: c.name,
-          status: statusOf(c, now()),
-          closesAt: c.closesAt.toISOString(),
-          attempts: own.length,
-          bestPoints: board[rank - 1].points,
-          rank,
-          players: board.length,
-        };
-      })
-      .sort((a, b) => b.closesAt.localeCompare(a.closesAt));
-
-    return {
-      user: { ...toPublic(user), createdAt: user.createdAt.toISOString() },
-      // Wallet arrives with the payment phase; balance is always 0 until then.
-      wallet: { balance: 0 },
-      stats: {
-        competitions: history.length,
-        attempts: mine.length,
-        bestPoints: history.length ? Math.max(...history.map((h) => h.bestPoints)) : null,
-        bestRank: history.length ? Math.min(...history.map((h) => h.rank)) : null,
-      },
-      history,
-    };
+    const user = requireUser(req, reply);
+    if (!user) return;
+    return { user: { ...toPublic(user), createdAt: user.createdAt.toISOString() }, ...service.profile(user.id) };
   });
 
   app.get("/api/me", async (req) => {
     const user = auth.userForSession(req.cookies[SESSION_COOKIE]);
     return { user: user ? toPublic(user) : null };
+  });
+
+  /** Forwards well-formed answers and pongs from the browser to a run. */
+  const onClientMessage = (session: GameSession) => (data: unknown) => {
+    let msg: ClientMessage;
+    try {
+      msg = JSON.parse(String(data));
+    } catch {
+      return;
+    }
+    if (msg?.type === "answer" && typeof msg.value === "string") session.handle(msg);
+    else if (msg?.type === "pong" && typeof msg.id === "number") session.handle(msg);
+  };
+
+  // Paid runs keep going when the browser disconnects (the clock never stops), and a
+  // player who comes back is attached to the same run.
+  type Socket = { send(d: string): void; close(code?: number, reason?: string): void; readyState: number; OPEN: number };
+  const liveRuns = new Map<string, { session: GameSession; socket: Socket | null }>();
+
+  app.get("/ws/attempt/:entryId", { websocket: true }, (socket, req) => {
+    const fail = (message: string) => {
+      socket.send(JSON.stringify({ type: "error", message }));
+      socket.close(1008, "refused");
+    };
+    const user = auth.userForSession(req.cookies[SESSION_COOKIE]);
+    if (!user) return fail("signed_out");
+    const { entryId } = req.params as { entryId: string };
+
+    let run = liveRuns.get(entryId);
+    if (run) {
+      try {
+        service.entry(user.id, entryId);
+      } catch {
+        return fail("not_found");
+      }
+      run.socket?.close(4000, "replaced");
+      run.socket = socket;
+      socket.on("message", onClientMessage(run.session));
+      socket.on("close", () => {
+        if (run!.socket === socket) run!.socket = null;
+      });
+      run.session.resync();
+      return;
+    }
+
+    let problems;
+    try {
+      problems = service.beginAttempt(user.id, entryId, randomInt(2 ** 31));
+    } catch (e) {
+      if (e instanceof ServiceError) return fail(e.code);
+      throw e;
+    }
+    const holder: { session: GameSession; socket: Socket | null } = { session: null!, socket };
+    const entry = service.entry(user.id, entryId);
+    holder.session = new GameSession(
+      problems,
+      (msg) => {
+        const s = holder.socket;
+        if (msg.type === "finished") {
+          service.finishAttempt(entryId, msg.totalPoints);
+          liveRuns.delete(entryId);
+          const placing = service.placing(entry.competitionId, user.id);
+          if (s && s.readyState === s.OPEN) {
+            s.send(JSON.stringify({ ...msg, placing }));
+            s.close(1000, "finished");
+          }
+          return;
+        }
+        if (s && s.readyState === s.OPEN) s.send(JSON.stringify(msg));
+      },
+      opts.clock ?? systemClock,
+      COUNTDOWN_MS,
+    );
+    liveRuns.set(entryId, holder);
+    socket.on("message", onClientMessage(holder.session));
+    socket.on("close", () => {
+      if (holder.socket === socket) holder.socket = null;
+    });
+    holder.session.start();
   });
 
   app.get("/ws/practice", { websocket: true }, (socket, req) => {
@@ -211,16 +295,7 @@ export async function buildApp(opts: AppOptions = {}) {
       COUNTDOWN_MS,
     );
 
-    socket.on("message", (data) => {
-      let msg: ClientMessage;
-      try {
-        msg = JSON.parse(String(data));
-      } catch {
-        return;
-      }
-      if (msg?.type === "answer" && typeof msg.value === "string") session.handle(msg);
-      else if (msg?.type === "pong" && typeof msg.id === "number") session.handle(msg);
-    });
+    socket.on("message", onClientMessage(session));
     socket.on("close", () => session.stop());
 
     session.start();

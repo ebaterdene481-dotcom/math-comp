@@ -66,9 +66,6 @@ export default function ProfilePage() {
 }
 
 function ProfileView({ p }: { p: Profile }) {
-  const [note, setNote] = useState<string | null>(null);
-  const soon = () => setNote("Хэтэвч төлбөрийн хэсэгтэй хамт удахгүй нээгдэнэ.");
-
   return (
     <div className="profile-grid">
       <div className="profile-card profile-id">
@@ -89,18 +86,13 @@ function ProfileView({ p }: { p: Profile }) {
         <span className="stat-label">Хэтэвчний үлдэгдэл</span>
         <span className="wallet-balance">{groupDigits(p.wallet.balance)}₮</span>
         <div className="wallet-actions">
-          <button type="button" className="btn" onClick={soon}>
+          <Link href="/wallet" className="btn">
             Цэнэглэх
-          </button>
-          <button type="button" className="btn btn-quiet" onClick={soon}>
-            Мөнгө татах
-          </button>
+          </Link>
+          <Link href="/wallet" className="btn btn-quiet">
+            Гүйлгээний түүх
+          </Link>
         </div>
-        {note && (
-          <p className="meta" role="status">
-            {note}
-          </p>
-        )}
       </div>
 
       <dl className="tiles profile-tiles">

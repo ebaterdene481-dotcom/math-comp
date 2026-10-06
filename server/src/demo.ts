@@ -1,7 +1,6 @@
 // Sample data so the home page has something to show before real competitions exist.
 // Only loaded when DEMO_DATA=1.
 
-import type { AuthStore } from "./auth.js";
 import type { AttemptResult, Competition } from "./competition.js";
 import { MAX_ATTEMPTS } from "./competition.js";
 
@@ -16,7 +15,8 @@ const PLAYERS: Array<[string, number]> = [
   ["Мөнхжин", 799031],
 ];
 
-export function seedDemo(auth: AuthStore, now: Date) {
+/** `addPlayer` registers each sample player so the leaderboard can show their nickname. */
+export function seedDemo(addPlayer: (id: string, nickname: string) => void, now: Date) {
   const hour = 3600_000;
   const competition: Competition = {
     id: "demo-1",
@@ -31,12 +31,11 @@ export function seedDemo(auth: AuthStore, now: Date) {
   };
   const results: AttemptResult[] = PLAYERS.map(([nickname, points], i) => {
     const id = `demo-user-${i}`;
-    auth.addDemoUser(id, nickname);
+    addPlayer(id, nickname);
     return {
       competitionId: competition.id,
       userId: id,
       points, // hundredths: 914250 = 9,142.50 of a possible 10,000
-
       finishedAt: new Date(now.getTime() - (i + 1) * 9 * 60_000),
     };
   });

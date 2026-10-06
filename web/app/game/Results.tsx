@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { type CompetitionInfo, type Leader, fmtPoints as fmtBig, getCurrentCompetition, groupDigits } from "../lib/api";
-import type { ProblemResult } from "./useGame";
+import type { Placing, ProblemResult } from "./useGame";
 
 const LEVELS = 5;
 const MAX_PER_PROBLEM = 10000; // hundredths
@@ -30,8 +30,9 @@ export function Results({
   result,
   onAgain,
 }: {
-  result: { totalPoints: number; results: ProblemResult[] };
-  onAgain: () => void;
+  result: { totalPoints: number; results: ProblemResult[]; placing?: Placing };
+  /** Practice only: play another round. */
+  onAgain?: () => void;
 }) {
   const rs = result.results;
   const solved = rs.filter((r) => r.solved && r.elapsedMs !== null);
@@ -120,7 +121,7 @@ export function Results({
               <span>5 с</span>
               <span>0</span>
             </div>
-            <ol className="tc-bars">
+            <ol className={`tc-bars${rs.length > 30 ? " dense" : ""}`}>
               {rs.map((r, i) => (
                 <li
                   key={i}
@@ -128,7 +129,7 @@ export function Results({
                   title={`${i + 1}. ${r.text} = ${r.answer}: ${r.solved ? `${sec(r.elapsedMs!)} с, ${fmtBig(r.points)} оноо` : "цаг дууссан"}`}
                 >
                   <i style={{ height: `${r.solved ? Math.max(3, (r.elapsedMs! / TIME_LIMIT_MS) * 100) : 100}%` }} />
-                  <span>{i + 1}</span>
+                  <span>{rs.length <= 30 || i === 0 || (i + 1) % 10 === 0 ? i + 1 : ""}</span>
                 </li>
               ))}
             </ol>
@@ -164,11 +165,17 @@ export function Results({
       </div>
 
       <div className="results-side">
-        <Compare total={result.totalPoints} />
+        {result.placing ? <PlacingCard placing={result.placing} total={result.totalPoints} /> : <Compare total={result.totalPoints} />}
         <div className="actions results-actions">
-          <button className="btn" onClick={onAgain}>
-            Дахин тоглох
-          </button>
+          {onAgain ? (
+            <button className="btn" onClick={onAgain}>
+              Дахин тоглох
+            </button>
+          ) : (
+            <Link href="/leaderboard" className="btn">
+              Бүх тэргүүлэгчид
+            </Link>
+          )}
           <Link href="/" className="btn btn-quiet">
             Нүүр хуудас
           </Link>
@@ -244,6 +251,42 @@ function Compare({ total }: { total: number }) {
       <Link href="/" className="btn compare-cta">
         Тэмцээнд оролцох: {data.competition.entryFee.toLocaleString("en-US").replace(/,/g, " ")}₮
       </Link>
+    </section>
+  );
+}
+
+/** A paid attempt's real place on the leaderboard. */
+function PlacingCard({ placing, total }: { placing: Placing; total: number }) {
+  const inTop = placing.rank !== null && placing.rank <= 3;
+  const third = placing.top[placing.top.length - 1];
+  return (
+    <section className="sheet compare" aria-labelledby="place-title">
+      <h2 id="place-title">Таны байр</h2>
+      <div className="placing">
+        <span className="placing-rank">{placing.rank ?? "–"}</span>
+        <span className="meta">{placing.players} оролцогчоос</span>
+      </div>
+      <p className="meta">
+        Тэргүүлэгчдийн жагсаалтад таны хамгийн сайн оролдлого орно. Ижил оноотой бол түрүүлж авсан нь өмнө
+        орно.
+      </p>
+      <ol className="leaders compare-list">
+        {placing.top.map((l) => (
+          <li key={l.rank} className={l.rank === 1 ? "first" : undefined}>
+            <span className="rank">{l.rank}</span>
+            <span className="nick">{l.nickname}</span>
+            <span className="pts">
+              {fmtBig(l.points)}
+              <small> оноо</small>
+            </span>
+          </li>
+        ))}
+      </ol>
+      {!inTop && third && (
+        <p className="compare-note">
+          Топ 3-т орохын тулд <b>{fmtBig(Math.max(0, third.points - total))}</b> оноо дутуу байна.
+        </p>
+      )}
     </section>
   );
 }

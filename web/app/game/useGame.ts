@@ -18,9 +18,27 @@ type ServerMessage =
   | { type: "wrong" }
   | { type: "correct"; points: number; elapsedMs: number }
   | { type: "timeout"; answer: number }
-  | { type: "finished"; totalPoints: number; results: ProblemResult[] }
+  | { type: "finished"; totalPoints: number; results: ProblemResult[]; placing?: Placing }
   | { type: "ping"; id: number }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "progress"; progress: Progress };
+
+/** Running totals the server re-sends when a player rejoins a paid run. */
+export interface Progress {
+  points: number;
+  correct: number;
+  ended: number;
+  wrong: number;
+  streak: number;
+  times: number[];
+}
+
+/** Where a paid attempt landed on the leaderboard (sent with the result). */
+export interface Placing {
+  rank: number | null;
+  players: number;
+  top: Array<{ rank: number; nickname: string; points: number }>;
+}
 
 export type Phase = "ready" | "connecting" | "countdown" | "gap" | "active" | "finished" | "error";
 
@@ -30,9 +48,17 @@ export type Feedback =
   | { kind: "timeout"; answer: number }
   | null;
 
-const WS_URL = process.env.NEXT_PUBLIC_GAME_WS_URL ?? "ws://localhost:4000/ws/practice";
+export const PRACTICE_WS_URL = process.env.NEXT_PUBLIC_GAME_WS_URL ?? "ws://localhost:4000/ws/practice";
 
-export function useGame() {
+const ERRORS: Record<string, string> = {
+  rate_limited: "Нэг цагт хийх туршилтын тоо дууслаа. Хэсэг хугацааны дараа дахин оролдоно уу.",
+  signed_out: "Нэвтэрсний дараа эхлүүлнэ үү.",
+  expired: "Эхлэх 15 минутын хугацаа дууссан байна.",
+  used: "Энэ оролдлого аль хэдийн дууссан байна.",
+  not_found: "Оролдлого олдсонгүй.",
+};
+
+export function useGame(url: string = PRACTICE_WS_URL) {
   const ws = useRef<WebSocket | null>(null);
   const [phase, setPhase] = useState<Phase>("ready");
   const [problem, setProblem] = useState<{
@@ -45,8 +71,9 @@ export function useGame() {
   } | null>(null);
   const [countdownEndsAt, setCountdownEndsAt] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<Feedback>(null);
-  const [result, setResult] = useState<{ totalPoints: number; results: ProblemResult[] } | null>(null);
+  const [result, setResult] = useState<{ totalPoints: number; results: ProblemResult[]; placing?: Placing } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<Progress | null>(null);
 
   const start = useCallback(() => {
     ws.current?.close();
@@ -56,7 +83,7 @@ export function useGame() {
     setResult(null);
     setError(null);
 
-    const sock = new WebSocket(WS_URL);
+    const sock = new WebSocket(url);
     ws.current = sock;
     let finished = false;
 
@@ -66,6 +93,9 @@ export function useGame() {
       switch (msg.type) {
         case "ping":
           sock.send(JSON.stringify({ type: "pong", id: msg.id }));
+          break;
+        case "progress":
+          setProgress(msg.progress);
           break;
         case "countdown":
           setCountdownEndsAt(performance.now() + msg.ms);
@@ -89,15 +119,11 @@ export function useGame() {
           break;
         case "finished":
           finished = true;
-          setResult({ totalPoints: msg.totalPoints, results: msg.results });
+          setResult({ totalPoints: msg.totalPoints, results: msg.results, placing: msg.placing });
           setPhase("finished");
           break;
         case "error":
-          setError(
-            msg.message === "rate_limited"
-              ? "Нэг цагт хийх туршилтын тоо дууслаа. Хэсэг хугацааны дараа дахин оролдоно уу."
-              : "Серверт алдаа гарлаа. Дахин эхлүүлнэ үү.",
-          );
+          setError(ERRORS[msg.message] ?? "Серверт алдаа гарлаа. Дахин эхлүүлнэ үү.");
           setPhase("error");
           break;
       }
@@ -107,7 +133,7 @@ export function useGame() {
       setError((e) => e ?? "Холболт тасарлаа. Интернэтээ шалгаад дахин эхлүүлнэ үү.");
       setPhase("error");
     };
-  }, []);
+  }, [url]);
 
   const answer = useCallback((value: string) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
@@ -117,5 +143,5 @@ export function useGame() {
 
   useEffect(() => () => ws.current?.close(), []);
 
-  return { phase, problem, feedback, result, error, start, answer, countdownEndsAt };
+  return { phase, problem, feedback, result, error, start, answer, countdownEndsAt, progress };
 }

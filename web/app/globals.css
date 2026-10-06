@@ -1297,6 +1297,17 @@ a {
   display: grid;
   grid-template-rows: 140px auto;
   justify-items: center;
+  min-width: 0;
+}
+
+/* A 100-problem run: thin bars, a label every tenth problem. */
+.tc-bars.dense {
+  gap: 1px;
+}
+
+.tc-bars.dense span {
+  overflow: visible;
+  white-space: nowrap;
 }
 
 .tc-bars i {
@@ -1374,8 +1385,12 @@ a {
   justify-content: stretch;
 }
 
+.results-actions {
+  flex-wrap: wrap;
+}
+
 .results-actions .btn {
-  flex: 1;
+  flex: 1 1 auto;
 }
 
 @media (max-width: 900px) {
@@ -1402,6 +1417,308 @@ a {
 
   .tc-bars span {
     font-size: 9px;
+  }
+}
+
+/* Paying the entry fee */
+.enter-sum {
+  margin: 4px 0 16px;
+  display: grid;
+  gap: 0;
+}
+
+.enter-sum div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--track);
+}
+
+.enter-sum dt {
+  color: var(--ink-soft);
+}
+
+.enter-sum dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.enter-sum .num {
+  font-family: var(--numbers);
+}
+
+.enter-cta {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.all-leaders {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 15px;
+}
+
+/* Wallet page */
+.wallet-main {
+  grid-row: auto;
+}
+
+.wallet-main .wallet-balance {
+  font-size: 56px;
+}
+
+.topup h2,
+.withdraw-title {
+  margin: 0 0 8px;
+  font-family: var(--font-heading);
+  font-size: 18px;
+}
+
+.withdraw-title {
+  margin-top: 24px;
+}
+
+.topup .meta {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.topup-amounts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.topup-amounts .btn {
+  min-height: 44px;
+  padding: 8px 6px;
+  font-family: var(--numbers);
+  font-size: 15px;
+}
+
+.topup-note {
+  margin: 12px 0 0;
+  font-weight: 600;
+}
+
+.tx-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tx-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--track);
+}
+
+.tx-list li:last-child {
+  border-bottom: 0;
+}
+
+.tx-kind {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tx-kind small {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.tx-amount {
+  font-family: var(--numbers);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tx-amount.out {
+  color: var(--ink-soft);
+}
+
+/* Paid run */
+.play-title {
+  margin: 0 0 12px;
+  font-family: var(--font-heading);
+  font-size: clamp(32px, 6vw, 48px);
+  letter-spacing: -0.02em;
+}
+
+.start-by {
+  font-family: var(--numbers);
+  font-weight: 700;
+}
+
+.start-by.low {
+  color: var(--red);
+}
+
+.play .rules li {
+  color: var(--ink);
+  border-color: var(--track);
+}
+
+.play .rules {
+  text-align: left;
+  max-width: 30em;
+  margin: 16px auto 24px;
+}
+
+.sheet-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.placing {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.placing-rank {
+  font-family: var(--numbers);
+  font-weight: 800;
+  font-size: 64px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+/* Full leaderboard */
+.board-page {
+  padding: 24px 0 64px;
+  display: grid;
+  gap: 16px;
+}
+
+.board-page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.board-page-head h1 {
+  margin: 0 0 6px;
+  font-family: var(--font-heading);
+  font-size: clamp(28px, 5vw, 40px);
+  letter-spacing: -0.02em;
+}
+
+.board-page-head .meta {
+  margin: 0;
+}
+
+.board-page-count {
+  margin: 0;
+  text-align: right;
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+.board-page-count b {
+  font-family: var(--numbers);
+  color: var(--ink);
+}
+
+.standings-card {
+  padding: 12px 28px 20px;
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.standings {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.standings th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--ink-soft);
+  padding: 12px 8px;
+}
+
+.standings td {
+  padding: 12px 8px;
+  border-top: 1px solid var(--track);
+}
+
+.standings .num {
+  text-align: right;
+  font-family: var(--numbers);
+}
+
+.standings .rank {
+  width: 2.5em;
+  font-family: var(--numbers);
+  color: var(--ink-soft);
+}
+
+.standings .pts {
+  font-weight: 700;
+}
+
+.standings tr.you td {
+  background: var(--ink);
+  color: var(--card);
+  border-top-color: var(--ink);
+}
+
+.standings tr.you td:first-child {
+  border-radius: 12px 0 0 12px;
+}
+
+.standings tr.you td:last-child {
+  border-radius: 0 12px 12px 0;
+}
+
+.you-tag {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.standings-card .meta {
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+
+@media (max-width: 520px) {
+  .board-page-count {
+    text-align: left;
+  }
+
+  .standings-card {
+    padding: 8px 14px 16px;
+  }
+
+  .standings th:nth-child(3),
+  .standings td:nth-child(3) {
+    display: none;
+  }
+
+  .wallet-main .wallet-balance {
+    font-size: 44px;
   }
 }
 

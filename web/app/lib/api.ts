@@ -35,6 +35,8 @@ export class ApiError extends Error {
   constructor(
     readonly code: string,
     message: string,
+    /** The rest of the error body, e.g. `need` for insufficient funds. */
+    readonly data: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -52,7 +54,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError("offline", "Сервертэй холбогдож чадсангүй. Дахин оролдоно уу.");
   }
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(body.error ?? "error", body.message ?? "Алдаа гарлаа. Дахин оролдоно уу.");
+  if (!res.ok) throw new ApiError(body.error ?? "error", body.message ?? "Алдаа гарлаа. Дахин оролдоно уу.", body);
   return body as T;
 }
 
@@ -123,3 +125,47 @@ export const getProfile = () => call<Profile>("/api/me/profile");
 /** Fired on window after login or logout so every part of the page can refresh. */
 export const AUTH_EVENT = "auth-changed";
 export const announceAuthChange = () => window.dispatchEvent(new Event(AUTH_EVENT));
+
+export interface Standing {
+  rank: number;
+  nickname: string;
+  points: number;
+  attempts: number;
+  achievedAt: string;
+  you: boolean;
+}
+
+export const getStandings = (competitionId: string) =>
+  call<{ competition: CompetitionInfo; standings: Standing[] }>(`/api/competitions/${competitionId}/standings`);
+
+export interface Entry {
+  id: string;
+  competitionId: string;
+  competitionName: string;
+  status: "paid" | "playing" | "finished" | "expired";
+  paidAt: string;
+  startBy: string;
+  points: number | null;
+}
+
+export const enterCompetition = (competitionId: string) =>
+  call<{ entry: Entry; balance: number }>(`/api/competitions/${competitionId}/enter`, { method: "POST" });
+
+export const getOpenEntries = () => call<{ entries: Entry[] }>("/api/me/entries");
+
+export interface Wallet {
+  balance: number;
+  transactions: Array<{ id: string; kind: "topup" | "entry" | "prize" | "withdraw"; amount: number; at: string; note: string }>;
+  /** True while there is no payment provider and test money can be added. */
+  demoTopUp?: boolean;
+}
+
+export const getWallet = () => call<Wallet>("/api/wallet");
+
+export const demoTopUp = (amount: number) =>
+  call<Wallet>("/api/wallet/demo-topup", { method: "POST", body: JSON.stringify({ amount }) });
+
+/** WebSocket address for a paid attempt, next to the practice socket. */
+export const attemptSocketUrl = (entryId: string) =>
+  (process.env.NEXT_PUBLIC_GAME_WS_URL ?? "ws://localhost:4000/ws/practice").replace(/\/ws\/practice$/, "") +
+  `/ws/attempt/${entryId}`;

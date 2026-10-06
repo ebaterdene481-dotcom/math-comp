@@ -18,12 +18,19 @@ Product spec (Mongolian): https://claude.ai/code/artifact/ff93ef08-c8c2-4d56-9c1
 - Home page competition card: status (live / upcoming / finished), how many of the 100
   attempts are used, top 3 players, and an Оролцох button that opens login/register and,
   once signed in, shows the entry fee.
-- Profile page: account details, wallet balance (top-up and withdraw arrive with payments),
-  competitions played with best score and rank. Sign in from the header on every page.
+- Paid entry: the fee comes out of the wallet, then the player has 15 minutes to start.
+  One open entry per player at a time; an entry not started in time expires (fee kept).
+- Paid run (/play): 100 problems after a 10 s countdown. The run keeps going on the server
+  if the browser disconnects; rejoining picks up the current problem with the time left
+  and the running totals. The result shows the player's real rank.
+- Wallet page: balance, transactions, and test top-ups in demo mode (no payment provider yet).
+- Full leaderboard page: every player's best attempt, the signed-in player highlighted.
+- Profile page: account details, wallet balance, competitions played with best score and
+  rank. Sign in from the header on every page.
 - Accounts: email + password, nickname, birth date (18+), terms acceptance; session in an
   httpOnly cookie. In memory for now.
 
-Not built yet: database, payment, wallet, paid competition runs, admin. Sample competition
+Not built yet: database, real payment and withdrawals, prize payout, admin. Sample competition
 data loads when `DEMO_DATA=1` (on by default outside production).
 
 ## Layout
@@ -35,14 +42,20 @@ server/   Fastify + WebSocket game server (TypeScript)
   src/session.ts    one player's run: timer, answers, latency credit
   src/competition.ts  competition status, leaderboard order
   src/auth.ts       accounts, age/terms rules, sessions
-  src/app.ts        HTTP API + /ws/practice
+  src/service.ts    wallet ledger, paid entries, standings (also used by the preview)
+  src/app.ts        HTTP API, /ws/practice and /ws/attempt/:entryId
 web/      Next.js front end
   app/page.tsx            home page
   app/CompetitionBoard.tsx  competition card on the home page
   app/AuthDialog.tsx      login / register window
   app/SiteHeader.tsx      logo and sign-in / profile link
+  app/EnterDialog.tsx     pay the entry fee from the wallet
   app/profile/page.tsx    player profile
+  app/wallet/page.tsx     wallet balance and transactions
+  app/play/page.tsx       paid 100-problem run
+  app/leaderboard/page.tsx  full standings
   app/practice/page.tsx   practice game
+  app/game/               game screen, socket hook and results shared by practice and play
 ```
 
 ## Run locally

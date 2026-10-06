@@ -123,6 +123,8 @@ export class CompetitionService {
   readonly entries: Entry[] = [];
   readonly txs: WalletTx[] = [];
   readonly withdrawals: Withdrawal[] = [];
+  /** Players left off every leaderboard, e.g. accounts an admin banned. */
+  excluded: (userId: string) => boolean = () => false;
 
   constructor(
     private readonly now: () => Date,
@@ -337,7 +339,8 @@ export class CompetitionService {
 
   /** Full ranking: each player's best attempt, ties to whoever got there first. */
   standings(competitionId: string) {
-    return leaderboard(this.results, competitionId).map((l, i) => ({
+    const counted = this.results.filter((r) => !this.excluded(r.userId));
+    return leaderboard(counted, competitionId).map((l, i) => ({
       rank: i + 1,
       userId: l.userId,
       nickname: this.nicknameOf(l.userId) ?? "?",

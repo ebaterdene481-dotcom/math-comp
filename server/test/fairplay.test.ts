@@ -144,3 +144,103 @@ describe("admin player list", () => {
     await app.close();
   });
 });
+
+describe("banning", () => {
+  it("signs a banned player out, keeps them out, hides their score, and lets an admin undo it", async () => {
+    const app = await buildApp({ demo: true });
+    const reg = await app.inject({
+      method: "POST",
+      url: "/api/auth/register",
+      payload: {
+        email: "c@b.mn",
+        password: "Password1!",
+        nickname: "Хуурч",
+        birthDate: "1990-01-01",
+        acceptTerms: true,
+      },
+    });
+    const player = { session: reg.cookies.find((c) => c.name === "session")!.value };
+    const id = reg.json().user.id;
+    await app.inject({
+      method: "POST",
+      url: "/api/auth/verify",
+      payload: { token: new URL(reg.json().devLink).searchParams.get("token") },
+    });
+
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: "admin@demo.mn", password: "admin12345" },
+    });
+    const admin = { session: login.cookies.find((c) => c.name === "session")!.value };
+    const adminId = login.json().user.id;
+
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url: `/api/admin/users/${id}/ban`,
+          cookies: player,
+          payload: { reason: "x" },
+        })
+      ).statusCode,
+    ).toBe(403);
+    const noReason = await app.inject({
+      method: "POST",
+      url: `/api/admin/users/${id}/ban`,
+      cookies: admin,
+      payload: {},
+    });
+    expect(noReason.json().error).toBe("reason_required");
+    const self = await app.inject({
+      method: "POST",
+      url: `/api/admin/users/${adminId}/ban`,
+      cookies: admin,
+      payload: { reason: "x" },
+    });
+    expect(self.json().error).toBe("admin_ban");
+
+    const board = async () =>
+      (await app.inject({ url: "/api/competitions/demo-1/standings" }))
+        .json()
+        .standings.map((s: { nickname: string }) => s.nickname);
+    const ban = await app.inject({
+      method: "POST",
+      url: `/api/admin/users/${id}/ban`,
+      cookies: admin,
+      payload: { reason: "Олон бүртгэл" },
+    });
+    expect(ban.json().users.find((u: { id: string }) => u.id === id).banned).toMatchObject({ reason: "Олон бүртгэл" });
+    expect((await app.inject({ url: "/api/me", cookies: player })).json().user).toBeNull();
+    const again = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: "c@b.mn", password: "Password1!" },
+    });
+    expect(again.json()).toMatchObject({ error: "banned", message: expect.stringContaining("Олон бүртгэл") });
+    expect(await board()).not.toContain("Хуурч");
+
+    await app.inject({ method: "POST", url: `/api/admin/users/${id}/unban`, cookies: admin });
+    const back = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: { email: "c@b.mn", password: "Password1!" },
+    });
+    expect(back.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("leaves a banned player's results off the leaderboard and the prize", () => {
+    const t = new Date("2026-10-06T12:00:00Z");
+    const svc = new CompetitionService(
+      () => t,
+      (id) => id.toUpperCase(),
+    );
+    svc.results.push(
+      { competitionId: "c1", userId: "cheat", points: 990000, finishedAt: t },
+      { competitionId: "c1", userId: "fair", points: 800000, finishedAt: t },
+    );
+    svc.excluded = (id) => id === "cheat";
+    expect(svc.standings("c1").map((s) => s.userId)).toEqual(["fair"]);
+  });
+});

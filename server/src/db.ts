@@ -83,6 +83,8 @@ create table if not exists withdrawals (
 );
 
 alter table users add column if not exists email_verified_at timestamptz;
+alter table users add column if not exists banned_at timestamptz;
+alter table users add column if not exists ban_reason text;
 
 create table if not exists email_tokens (
   token_hash text primary key,
@@ -181,6 +183,8 @@ export class Database {
         passwordHash: r.password_hash,
         createdAt: r.created_at,
         emailVerifiedAt: r.email_verified_at ?? undefined,
+        bannedAt: r.banned_at ?? undefined,
+        banReason: r.ban_reason ?? undefined,
       })),
       sessions: sessions.map((r) => ({ tokenHash: r.token_hash, userId: r.user_id, expires: r.expires_at })),
       competitions: competitions.map((r) => ({
@@ -245,10 +249,23 @@ export class Database {
   readonly auth: AuthPersist = {
     user: (u) =>
       this.write(
-        `insert into users (id, email, nickname, birth_date, terms_version, password_hash, created_at, email_verified_at)
-         values ($1, $2, $3, $4, $5, $6, $7, $8)
-         on conflict (id) do update set email = $2, nickname = $3, password_hash = $6, email_verified_at = $8`,
-        [u.id, u.email, u.nickname, u.birthDate, u.termsVersion, u.passwordHash, u.createdAt, u.emailVerifiedAt ?? null],
+        `insert into users
+           (id, email, nickname, birth_date, terms_version, password_hash, created_at, email_verified_at, banned_at, ban_reason)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         on conflict (id) do update set
+           email = $2, nickname = $3, password_hash = $6, email_verified_at = $8, banned_at = $9, ban_reason = $10`,
+        [
+          u.id,
+          u.email,
+          u.nickname,
+          u.birthDate,
+          u.termsVersion,
+          u.passwordHash,
+          u.createdAt,
+          u.emailVerifiedAt ?? null,
+          u.bannedAt ?? null,
+          u.banReason ?? null,
+        ],
       ),
     session: (s) =>
       this.write("insert into sessions (token_hash, user_id, expires_at) values ($1, $2, $3)", [

@@ -13,6 +13,7 @@ import {
   ApiError,
   type CompetitionForm,
   awardPrize,
+  banUser,
   createCompetition,
   deleteCompetition,
   fmtPoints,
@@ -24,6 +25,7 @@ import {
   groupDigits,
   markWithdrawalPaid,
   rejectWithdrawal,
+  unbanUser,
   updateCompetition,
   uploadImage,
 } from "../lib/api";
@@ -141,7 +143,7 @@ export default function AdminPage() {
               <Awards list={list} reload={reload} flagged={new Set(flagged.map((u) => u.nickname))} onGo={setTab} />
             )}
             {tab === "withdrawals" && <Withdrawals list={payouts} reload={reload} />}
-            {tab === "users" && <Users list={users} />}
+            {tab === "users" && <Users list={users} reload={reload} />}
           </>
         )}
       </section>
@@ -754,7 +756,7 @@ const REASON_TEXT = { device: "Нэг төхөөрөмж", bank: "Нэг бан�
 const secs = (ms: number | null) => (ms === null ? "–" : `${(ms / 1000).toFixed(2)} сек`);
 
 /** Every registered player, those with a fair-play flag first. */
-function Users({ list }: { list: AdminUser[] }) {
+function Users({ list, reload }: { list: AdminUser[]; reload: () => Promise<void> }) {
   const [query, setQuery] = useState("");
   const [onlyFlagged, setOnlyFlagged] = useState(false);
   const q = query.trim().toLowerCase();
@@ -780,7 +782,8 @@ function Users({ list }: { list: AdminUser[] }) {
         Сэжигтэй гэж тэмдэглэх үндэслэл: хүнээс хэт хурдан хариулсан оролдлого (0.3 сек-ээс хурдан 3 ба түүнээс олон зөв
         хариулт, эсвэл дунджаар 0.7 сек-ээс хурдан), эсвэл өөр бүртгэлтэй нэг төхөөрөмж, нэг банкны данс ашигласан.
         Зөвхөн IP хаяг давхцах нь хангалтгүй, учир нь мобайл сүлжээнд олон хүн нэг IP-тэй байдаг. Систем өөрөө юу ч
-        хаахгүй, та шийднэ.
+        хаахгүй, та шийднэ. Хаасан тоглогч нэвтэрч чадахгүй, оноо нь тэргүүлэгчдийн жагсаалт болон шагналаас хасагдана.
+        Хэтэвчний мөнгө нь хэвээр үлдэнэ. «Нээх» дарвал бүгд сэргэнэ.
       </p>
       {shown.length === 0 ? (
         <p className="meta">
@@ -789,7 +792,7 @@ function Users({ list }: { list: AdminUser[] }) {
       ) : (
         <ul className="admin-list">
           {shown.map((u) => (
-            <UserRow key={u.id} u={u} />
+            <UserRow key={u.id} u={u} reload={reload} />
           ))}
         </ul>
       )}
@@ -797,16 +800,36 @@ function Users({ list }: { list: AdminUser[] }) {
   );
 }
 
-function UserRow({ u }: { u: AdminUser }) {
+function UserRow({ u, reload }: { u: AdminUser; reload: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [banning, setBanning] = useState(false);
+  const [reason, setReason] = useState("");
+
+  async function act(fn: () => Promise<unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+      setBanning(false);
+      await reload();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Алдаа гарлаа.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const strong = u.links.filter((l) => l.reasons.some((r) => r !== "ip"));
   const ipOnly = u.links.filter((l) => l.reasons.every((r) => r === "ip"));
   return (
-    <li className={`comp-card admin-row user-row${u.flagged ? " flagged" : ""}`}>
+    <li className={`comp-card admin-row user-row${u.flagged ? " flagged" : ""}${u.banned ? " banned" : ""}`}>
       <div className="admin-row-main">
         <div className="admin-row-head">
           <b>{u.nickname}</b>
           {u.flagged && <span className="pill-wait">Сэжигтэй</span>}
           {u.isAdmin && <span className="pill-done">Админ</span>}
+          {u.banned && <span className="pill-rejected">Хаагдсан</span>}
           {!u.emailVerified && <span className="pill-paid">Имэйл баталгаажаагүй</span>}
         </div>
         <span className="meta user-email">
@@ -832,7 +855,58 @@ function UserRow({ u }: { u: AdminUser }) {
           </ul>
         )}
         {ipOnly.length > 0 && <span className="meta">Нэг IP хаягтай: {ipOnly.map((l) => l.nickname).join(", ")}</span>}
+        {u.banned && (
+          <span className="withdraw-reason">
+            {fmtAt(u.banned.at)}-нд хаасан. Шалтгаан: {u.banned.reason}
+          </span>
+        )}
+        {error && (
+          <span className="auth-error" role="alert">
+            {error}
+          </span>
+        )}
       </div>
+      {!u.isAdmin && (
+        <div className="payout-actions">
+          {u.banned ? (
+            <button
+              type="button"
+              className="btn btn-quiet"
+              disabled={busy}
+              onClick={() => window.confirm(`${u.nickname}-г нээх үү?`) && act(() => unbanUser(u.id))}
+            >
+              Нээх
+            </button>
+          ) : banning ? (
+            <form
+              className="reject-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                act(() => banUser(u.id, reason));
+              }}
+            >
+              <input
+                required
+                autoFocus
+                placeholder="Хаах шалтгаан"
+                value={reason}
+                maxLength={200}
+                onChange={(e) => setReason(e.target.value)}
+              />
+              <button type="submit" className="btn btn-quiet btn-danger" disabled={busy}>
+                Хаах
+              </button>
+              <button type="button" className="link" onClick={() => setBanning(false)}>
+                Болих
+              </button>
+            </form>
+          ) : (
+            <button type="button" className="btn btn-quiet btn-danger" disabled={busy} onClick={() => setBanning(true)}>
+              Хаах
+            </button>
+          )}
+        </div>
+      )}
     </li>
   );
 }

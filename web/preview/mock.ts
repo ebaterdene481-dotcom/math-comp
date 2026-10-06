@@ -65,7 +65,13 @@ const users = () => {
   const list = store.get<StoredUser[]>("preview.users", []);
   return list.some((u) => u.email === ADMIN.email) ? list : [ADMIN, ...list];
 };
-const me = () => users().find((u) => u.id === store.get<string | null>("preview.session", null)) ?? null;
+/** Accounts an admin closed, by id, with when and why. */
+const bans = () => store.get<Record<string, { at: string; reason: string }>>("preview.bans", {});
+service.excluded = (id) => Boolean(bans()[id]);
+const me = () => {
+  const u = users().find((x) => x.id === store.get<string | null>("preview.session", null));
+  return u && !bans()[u.id] ? u : null;
+};
 const pub = (u: StoredUser) => ({
   id: u.id,
   email: u.email,
@@ -321,6 +327,8 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
     const email = String(b.email ?? "").trim().toLowerCase();
     const u = users().find((x) => x.email === email && x.password === b.password);
     if (!u) return fail("bad_credentials", "И-мэйл эсвэл нууц үг буруу байна.");
+    const ban = bans()[u.id];
+    if (ban) return fail("banned", `Таны бүртгэлийг админ хаасан. Шалтгаан: ${ban.reason}`);
     store.set("preview.session", u.id);
     noteSeen(u.id);
     return { status: 200, body: { user: pub(u) } };
@@ -397,7 +405,13 @@ function userRows() {
     isAdmin: u.email === ADMIN.email,
   }));
   const sample = { ...SAMPLE_FAST, createdAt: new Date(Date.now() - 2 * 86_400_000), emailVerified: true };
-  return adminUserRows([...accounts, sample], service, sightings.all());
+  const b = bans();
+  const withBans = [...accounts, sample].map((u) => ({
+    ...u,
+    bannedAt: b[u.id] && new Date(b[u.id].at),
+    banReason: b[u.id]?.reason,
+  }));
+  return adminUserRows(withBans, service, sightings.all());
 }
 
 function adminRoute(path: string, method: string, b: Record<string, any>): { status: number; body: unknown } {
@@ -412,6 +426,21 @@ function adminRoute(path: string, method: string, b: Record<string, any>): { sta
     });
   }
   if (path === "/api/admin/users") return ok({ users: userRows() });
+  const banPath = path.match(/^\/api\/admin\/users\/([^/]+)\/(ban|unban)$/);
+  if (banPath && method === "POST") {
+    const [, id, action] = banPath;
+    const all = bans();
+    if (action === "unban") delete all[id];
+    else {
+      const reason = String(b.reason ?? "").trim().slice(0, 200);
+      if (!reason) return { status: 400, body: { error: "reason_required", message: "Хаах шалтгаанаа бичнэ үү." } };
+      if (id === ADMIN.id)
+        return { status: 400, body: { error: "admin_ban", message: "Админ бүртгэлийг хаах боломжгүй." } };
+      all[id] = { at: new Date().toISOString(), reason };
+    }
+    store.set("preview.bans", all);
+    return ok({ users: userRows() });
+  }
   if (path === "/api/admin/competitions" && method === "GET") return ok({ competitions: service.adminCompetitions() });
   if (path === "/api/admin/competitions" && method === "POST") {
     const c = service.createCompetition(b);

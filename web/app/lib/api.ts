@@ -254,6 +254,8 @@ export interface AdminUser {
   email: string;
   emailVerified: boolean;
   isAdmin: boolean;
+  /** Set when an admin closed the account. */
+  banned: { at: string; reason: string } | null;
   createdAt: string;
   balance: number;
   runs: number;
@@ -271,6 +273,10 @@ export interface AdminUser {
 }
 
 export const getAdminUsers = () => call<{ users: AdminUser[] }>("/api/admin/users");
+export const banUser = (id: string, reason: string) =>
+  call<{ users: AdminUser[] }>(`/api/admin/users/${id}/ban`, { method: "POST", body: JSON.stringify({ reason }) });
+export const unbanUser = (id: string) =>
+  call<{ users: AdminUser[] }>(`/api/admin/users/${id}/unban`, { method: "POST", body: "{}" });
 
 export type AdminWithdrawal = Withdrawal & { nickname: string; balance: number };
 

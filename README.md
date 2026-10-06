@@ -64,7 +64,8 @@ Product spec (Mongolian): https://claude.ai/code/artifact/ff93ef08-c8c2-4d56-9c1
   (a two-year `device` cookie), a withdrawal bank account or an IP address are linked;
   a shared IP alone does not flag anyone (mobile networks share them). Only hashes of the
   device id and IP are stored. Admins' own sign-ins are left out. Nothing is blocked
-  automatically.
+  automatically; an admin can ban an account with a reason (signed out everywhere, cannot
+  sign in, scores left off leaderboards and prizes, wallet kept) and unban it again.
 - Admin player list («Хэрэглэгчид»): every account with balance, runs and best score,
   flagged ones first with the reasons, search and a flagged-only filter. The prize tab
   warns when a winner is flagged.

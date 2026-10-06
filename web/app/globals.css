@@ -3058,8 +3058,13 @@ a {
 }
 
 .user-row {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   padding: 16px 20px;
+}
+
+.user-row.banned .admin-row-main > :not(.admin-row-head):not(.withdraw-reason) {
+  opacity: 0.6;
 }
 
 .user-row.flagged {
@@ -3098,5 +3103,11 @@ a {
   .admin-tabs button:last-child:nth-child(odd) {
     grid-column: span 2;
     justify-content: center;
+  }
+}
+
+@media (max-width: 560px) {
+  .user-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

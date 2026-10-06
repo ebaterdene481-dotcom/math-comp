@@ -91,6 +91,7 @@ export async function buildApp(opts: AppOptions = {}) {
   const auth = new AuthStore(now, [...(opts.adminEmails ?? []), ...(opts.demo ? [DEMO_ADMIN.email] : [])], db?.auth);
   const pub = (u: Parameters<typeof toPublic>[0]) => toPublic(u, auth.isAdmin(u));
   const service = new CompetitionService(now, (id) => auth.getUser(id)?.nickname, db?.service);
+  service.excluded = (id) => Boolean(auth.getUser(id)?.bannedAt);
   const saved = db ? await db.load() : null;
   const sightings = new Sightings(now, db?.sightings);
   if (saved) {
@@ -423,6 +424,28 @@ export async function buildApp(opts: AppOptions = {}) {
   app.get(
     "/api/admin/users",
     admin(() => ({ users: userRows() })),
+  );
+
+  /** Admin actions on a player; AuthErrors become 400s. */
+  const onUser = (fn: (user: NonNullable<ReturnType<typeof auth.getUser>>, b: Record<string, unknown>) => void) =>
+    admin((req) => {
+      const user = auth.getUser((req.params as { id: string }).id);
+      if (!user) throw new ServiceError("not_found", "Хэрэглэгч олдсонгүй.");
+      try {
+        fn(user, body(req));
+      } catch (e) {
+        if (e instanceof AuthError) throw new ServiceError(e.code, e.message);
+        throw e;
+      }
+      return { users: userRows() };
+    });
+  app.post(
+    "/api/admin/users/:id/ban",
+    onUser((u, b) => auth.ban(u, b.reason)),
+  );
+  app.post(
+    "/api/admin/users/:id/unban",
+    onUser((u) => auth.unban(u)),
   );
   app.get(
     "/api/admin/competitions",

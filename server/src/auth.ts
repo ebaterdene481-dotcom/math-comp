@@ -20,6 +20,9 @@ export interface User {
   createdAt: Date;
   /** Set once the player opened the link sent to their email. */
   emailVerifiedAt?: Date;
+  /** Set when an admin closed the account; it cannot sign in and its scores are hidden. */
+  bannedAt?: Date;
+  banReason?: string;
 }
 
 export interface PublicUser {
@@ -212,6 +215,7 @@ export class AuthStore {
     const user = [...this.users.values()].find((u) => u.email === email);
     const ok = user && typeof password === "string" && (await checkPassword(password, user.passwordHash));
     if (!ok) throw new AuthError("bad_credentials", "И-мэйл эсвэл нууц үг буруу байна.");
+    if (user.bannedAt) throw new AuthError("banned", `Таны бүртгэлийг админ хаасан. Шалтгаан: ${user.banReason}`);
     return user;
   }
 
@@ -227,7 +231,8 @@ export class AuthStore {
     if (!token) return undefined;
     const s = this.sessions.get(hashToken(token));
     if (!s || s.expires.getTime() < this.now().getTime()) return undefined;
-    return this.users.get(s.userId);
+    const user = this.users.get(s.userId);
+    return user?.bannedAt ? undefined : user;
   }
 
   endSession(token: string | undefined) {
@@ -298,6 +303,7 @@ export class AuthStore {
     const weak = typeof password === "string" ? passwordProblem(password) : "Шинэ нууц үгээ оруулна уу.";
     if (typeof password !== "string" || weak) throw new AuthError("password_weak", weak!);
     const user = this.consume(token, "reset");
+    if (user.bannedAt) throw new AuthError("banned", `Таны бүртгэлийг админ хаасан. Шалтгаан: ${user.banReason}`);
     user.passwordHash = await hashPassword(password);
     // Opening the link proved the email is theirs.
     user.emailVerifiedAt ??= this.now();
@@ -305,6 +311,24 @@ export class AuthStore {
     for (const [h, s] of this.sessions) if (s.userId === user.id) this.sessions.delete(h);
     this.persist.endUserSessions(user.id);
     return user;
+  }
+
+  /** Closes an account: it is signed out everywhere and cannot sign in again until unbanned. */
+  ban(user: User, reasonRaw: unknown) {
+    const reason = typeof reasonRaw === "string" ? reasonRaw.trim().slice(0, 200) : "";
+    if (!reason) throw new AuthError("reason_required", "Хаах шалтгаанаа бичнэ үү.");
+    if (this.isAdmin(user)) throw new AuthError("admin_ban", "Админ бүртгэлийг хаах боломжгүй.");
+    user.bannedAt = this.now();
+    user.banReason = reason;
+    this.persist.user(user);
+    for (const [h, s] of this.sessions) if (s.userId === user.id) this.sessions.delete(h);
+    this.persist.endUserSessions(user.id);
+  }
+
+  unban(user: User) {
+    user.bannedAt = undefined;
+    user.banReason = undefined;
+    this.persist.user(user);
   }
 
   /** For demo seeding only. */

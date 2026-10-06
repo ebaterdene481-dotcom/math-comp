@@ -153,6 +153,8 @@ export interface AccountInfo {
   createdAt: Date;
   emailVerified: boolean;
   isAdmin?: boolean;
+  bannedAt?: Date;
+  banReason?: string;
 }
 
 /** One row of the admin's player list. */
@@ -184,6 +186,7 @@ export function adminUserRows(users: AccountInfo[], service: CompetitionService,
         email: u.email,
         emailVerified: u.emailVerified,
         isAdmin: Boolean(u.isAdmin),
+        banned: u.bannedAt ? { at: u.bannedAt.toISOString(), reason: u.banReason ?? "" } : null,
         createdAt: u.createdAt.toISOString(),
         balance: service.balance(u.id),
         runs: runs.length,

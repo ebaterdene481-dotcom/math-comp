@@ -1187,7 +1187,12 @@ a {
   margin: 8px 0 0;
 }
 
+/* Labels may wrap to two lines; the numbers still line up along the bottom. */
 .tiles div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
   padding: 14px;
   border-radius: 16px;
   background: var(--paper);
@@ -1200,7 +1205,7 @@ a {
 }
 
 .tiles dd {
-  margin: 2px 0 0;
+  margin: 0;
   font-family: var(--numbers);
   font-weight: 700;
   font-size: 22px;

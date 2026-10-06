@@ -167,7 +167,7 @@ function CompetitionView({
           </article>
           <dl className="tiles comp-tiles">
             <div>
-              <dt>Оролцогч</dt>
+              <dt>Нийт оролцогчид</dt>
               <dd>{standings.length}</dd>
             </div>
             <div>

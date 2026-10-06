@@ -418,6 +418,23 @@ a {
   width: 100%;
 }
 
+.join-row {
+  display: flex;
+  gap: 8px;
+}
+
+.join-row {
+  flex-wrap: wrap;
+}
+
+.join-row .btn {
+  flex: 1 1 140px;
+  width: auto;
+  min-width: 0;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
 .join .btn:disabled {
   background: var(--grid);
   border-color: var(--grid);

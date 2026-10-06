@@ -132,15 +132,17 @@ export function CompetitionBoard() {
           )}
 
           <div className="join">
-            <JoinButton competition={c} onEntered={refresh} />
+            <div className="join-row">
+              <JoinButton competition={c} onEntered={refresh} />
+              <Link href="/competition" className="btn btn-quiet join-more">
+                Дэлгэрэнгүй
+              </Link>
+            </div>
             {c.status === "finished" && data.leaders[0] && (
               <p className="winner">
                 Ялагч: <b>{data.leaders[0].nickname}</b>
               </p>
             )}
-            <Link href="/competition" className="link all-leaders">
-              Тэмцээний дэлгэрэнгүй, бүх оролцогчид
-            </Link>
             {user && (
               <p className="signed-in">
                 {user.nickname} нэрээр нэвтэрсэн.{" "}

@@ -11,7 +11,7 @@ const url = process.env.TEST_DATABASE_URL;
 async function reset() {
   const c = new pg.Client({ connectionString: url });
   await c.connect();
-  await c.query("drop table if exists email_tokens, withdrawals, wallet_txs, results, entries, competitions, sessions, users cascade");
+  await c.query("drop table if exists sightings, email_tokens, withdrawals, wallet_txs, results, entries, competitions, sessions, users cascade");
   await c.end();
 }
 
@@ -70,6 +70,15 @@ describe.skipIf(!url)("postgres storage", () => {
       payload: { email: "k@b.mn", password: "Password1!" },
     });
     expect(login.statusCode).toBe(200);
+    const c = new pg.Client({ connectionString: url });
+    await c.connect();
+    const seen = (await c.query("select kind, count(*)::int as n from sightings group by kind order by kind")).rows;
+    await c.end();
+    // No device cookie is sent back here, so each call looks like a new device.
+    expect(seen).toEqual([
+      { kind: "device", n: 4 },
+      { kind: "ip", n: 1 },
+    ]);
     await app.close();
   });
 

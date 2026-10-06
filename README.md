@@ -59,7 +59,18 @@ Product spec (Mongolian): https://claude.ai/code/artifact/ff93ef08-c8c2-4d56-9c1
   admin page («Мөнгө татах») an admin sends it by bank transfer and marks it paid, or
   rejects it with a reason and the money goes back to the wallet.
 
-Not built yet: real payment (QPay) and admin user management. Sample competition
+- Fair play: each paid run's answer speed is kept; a run with 3+ correct answers under
+  0.3 s, or a median under 0.7 s over 20+ answers, is flagged. Accounts sharing a device
+  (a two-year `device` cookie), a withdrawal bank account or an IP address are linked;
+  a shared IP alone does not flag anyone (mobile networks share them). Only hashes of the
+  device id and IP are stored. Admins' own sign-ins are left out. Nothing is blocked
+  automatically; an admin can ban an account with a reason (signed out everywhere, cannot
+  sign in, scores left off leaderboards and prizes, wallet kept) and unban it again.
+- Admin player list («Хэрэглэгчид»): every account with balance, runs and best score,
+  flagged ones first with the reasons, search and a flagged-only filter. The prize tab
+  warns when a winner is flagged.
+
+Not built yet: real payment (QPay). Sample competition
 data loads when `DEMO_DATA=1` (on by default outside production).
 
 ## Layout

@@ -10,7 +10,9 @@ import {
   statusOf,
 } from "./competition.js";
 import { MAX_ATTEMPTS, prizeFund } from "./competition.js";
+import { type SpeedReview, reviewSpeed } from "./fairplay.js";
 import { ATTEMPT_PER_LEVEL, type Problem, generateProblems } from "./problems.js";
+import type { ProblemResult } from "./session.js";
 
 /** After paying, a player has this long to start the attempt. */
 export const START_WINDOW_MS = 15 * 60_000;
@@ -26,6 +28,8 @@ export interface Entry {
   startBy: Date;
   status: EntryStatus;
   points?: number;
+  /** How fast the run was answered, for the fair-play check. */
+  review?: SpeedReview;
 }
 
 export type TxKind = "topup" | "entry" | "prize" | "withdraw" | "refund";
@@ -119,6 +123,8 @@ export class CompetitionService {
   readonly entries: Entry[] = [];
   readonly txs: WalletTx[] = [];
   readonly withdrawals: Withdrawal[] = [];
+  /** Players left off every leaderboard, e.g. accounts an admin banned. */
+  excluded: (userId: string) => boolean = () => false;
 
   constructor(
     private readonly now: () => Date,
@@ -333,7 +339,8 @@ export class CompetitionService {
 
   /** Full ranking: each player's best attempt, ties to whoever got there first. */
   standings(competitionId: string) {
-    return leaderboard(this.results, competitionId).map((l, i) => ({
+    const counted = this.results.filter((r) => !this.excluded(r.userId));
+    return leaderboard(counted, competitionId).map((l, i) => ({
       rank: i + 1,
       userId: l.userId,
       nickname: this.nicknameOf(l.userId) ?? "?",
@@ -422,11 +429,12 @@ export class CompetitionService {
     return generateProblems(ATTEMPT_PER_LEVEL, seed);
   }
 
-  finishAttempt(entryId: string, points: number) {
+  finishAttempt(entryId: string, points: number, results?: ProblemResult[]) {
     const e = this.entries.find((x) => x.id === entryId);
     if (!e || e.status !== "playing") return;
     e.status = "finished";
     e.points = points;
+    if (results) e.review = reviewSpeed(results);
     const r: AttemptResult = { competitionId: e.competitionId, userId: e.userId, points, finishedAt: this.now() };
     this.results.push(r);
     this.persist.entry(e);

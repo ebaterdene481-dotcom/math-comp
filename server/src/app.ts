@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
@@ -10,6 +10,7 @@ import { AuthError, AuthStore, toPublic } from "./auth.js";
 import type { Database } from "./db.js";
 import { type Mailer, logMailer, resetMail, verifyMail } from "./mail.js";
 import { seedDemo } from "./demo.js";
+import { Sightings, adminUserRows } from "./fairplay.js";
 import { BANKS, CompetitionService, MIN_WITHDRAWAL, ServiceError } from "./service.js";
 import { COUNTDOWN_MS, GameSession, type ClientMessage, type Clock, systemClock } from "./session.js";
 
@@ -20,6 +21,8 @@ export const PRACTICE_RUNS_PER_HOUR = 30;
 export const AUTH_TRIES_PER_15_MIN = 20;
 
 const SESSION_COOKIE = "session";
+/** A random id kept by the browser for two years, to notice several accounts on one device. */
+const DEVICE_COOKIE = "device";
 
 export interface AppOptions {
   clock?: Clock;
@@ -88,10 +91,13 @@ export async function buildApp(opts: AppOptions = {}) {
   const auth = new AuthStore(now, [...(opts.adminEmails ?? []), ...(opts.demo ? [DEMO_ADMIN.email] : [])], db?.auth);
   const pub = (u: Parameters<typeof toPublic>[0]) => toPublic(u, auth.isAdmin(u));
   const service = new CompetitionService(now, (id) => auth.getUser(id)?.nickname, db?.service);
+  service.excluded = (id) => Boolean(auth.getUser(id)?.bannedAt);
   const saved = db ? await db.load() : null;
+  const sightings = new Sightings(now, db?.sightings);
   if (saved) {
     auth.load(saved.users, saved.sessions, saved.tokens);
     service.load(saved);
+    sightings.load(saved.sightings);
   }
   // Sample data goes in only once: into an empty database, or every start without one.
   if (opts.demo && !saved?.users.length) {
@@ -125,6 +131,25 @@ export async function buildApp(opts: AppOptions = {}) {
     const user = auth.userForSession(req.cookies[SESSION_COOKIE]);
     if (!user) reply.code(401).send({ error: "signed_out", message: "Нэвтэрнэ үү." });
     return user;
+  };
+
+  const hash = (v: string) => createHash("sha256").update(v).digest("hex");
+
+  /** Notes the device and IP address `userId` is playing from, for the fair-play check. */
+  const noteSeen = (req: FastifyRequest, reply: FastifyReply, userId: string) => {
+    let device = req.cookies[DEVICE_COOKIE];
+    if (!device || !/^[A-Za-z0-9_-]{16,64}$/.test(device)) {
+      device = randomBytes(16).toString("base64url");
+      reply.setCookie(DEVICE_COOKIE, device, {
+        path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: opts.secureCookies ?? false,
+        maxAge: 2 * 365 * 24 * 3600,
+      });
+    }
+    sightings.see(userId, "device", hash(device));
+    sightings.see(userId, "ip", hash(req.ip));
   };
 
   /** The signed-in user with a confirmed email, or a 401/403 already sent. */
@@ -179,6 +204,7 @@ export async function buildApp(opts: AppOptions = {}) {
       const user = requireVerified(req, reply);
       if (!user) return;
       const entry = service.enter(user.id, (req.params as { id: string }).id);
+      noteSeen(req, reply, user.id);
       return { entry: service.publicEntry(entry), balance: service.balance(user.id) };
     }),
   );
@@ -207,6 +233,7 @@ export async function buildApp(opts: AppOptions = {}) {
       const user = requireVerified(req, reply);
       if (!user) return;
       const w = service.requestWithdrawal(user.id, body(req));
+      noteSeen(req, reply, user.id);
       return { withdrawal: service.publicWithdrawal(w), balance: service.balance(user.id) };
     }),
   );
@@ -271,15 +298,16 @@ export async function buildApp(opts: AppOptions = {}) {
 
   /** Signs the returned user in. */
   const authRoute = (handler: (body: Record<string, unknown>) => Promise<{ id: string }>) =>
-    limited(async (b, _req, reply) => {
+    limited(async (b, req, reply) => {
       const user = await handler(b);
       setSession(reply, user.id);
+      noteSeen(req, reply, user.id);
       return { user: pub(auth.getUser(user.id)!) };
     });
 
   app.post(
     "/api/auth/register",
-    limited(async (b, _req, reply) => {
+    limited(async (b, req, reply) => {
       if (typeof b.passwordConfirm === "string" && b.passwordConfirm !== b.password)
         throw new AuthError("password_mismatch", "Давтан оруулсан нууц үг таарахгүй байна.");
       const user = await auth.register({
@@ -290,6 +318,7 @@ export async function buildApp(opts: AppOptions = {}) {
         acceptTerms: b.acceptTerms,
       });
       setSession(reply, user.id);
+      noteSeen(req, reply, user.id);
       return { user: pub(user), ...sendLink(user, "verify") };
     }),
   );
@@ -324,11 +353,12 @@ export async function buildApp(opts: AppOptions = {}) {
 
   app.post(
     "/api/auth/reset",
-    limited(async (b, _req, reply) => {
+    limited(async (b, req, reply) => {
       if (typeof b.passwordConfirm === "string" && b.passwordConfirm !== b.password)
         throw new AuthError("password_mismatch", "Давтан оруулсан нууц үг таарахгүй байна.");
       const user = await auth.resetPassword(b.token, b.password);
       setSession(reply, user.id);
+      noteSeen(req, reply, user.id);
       return { user: pub(user) };
     }),
   );
@@ -377,8 +407,45 @@ export async function buildApp(opts: AppOptions = {}) {
     "/api/admin/dashboard",
     admin(() => {
       const since = startOfDayUB(now());
-      return { ...service.dashboard(since), users: auth.userCounts(since) };
+      return {
+        ...service.dashboard(since),
+        users: auth.userCounts(since),
+        flaggedUsers: userRows().filter((u) => u.flagged).length,
+      };
     }),
+  );
+
+  const userRows = () =>
+    adminUserRows(
+      auth.realUsers().map((u) => ({ ...u, emailVerified: Boolean(u.emailVerifiedAt), isAdmin: auth.isAdmin(u) })),
+      service,
+      sightings.all(),
+    );
+  app.get(
+    "/api/admin/users",
+    admin(() => ({ users: userRows() })),
+  );
+
+  /** Admin actions on a player; AuthErrors become 400s. */
+  const onUser = (fn: (user: NonNullable<ReturnType<typeof auth.getUser>>, b: Record<string, unknown>) => void) =>
+    admin((req) => {
+      const user = auth.getUser((req.params as { id: string }).id);
+      if (!user) throw new ServiceError("not_found", "Хэрэглэгч олдсонгүй.");
+      try {
+        fn(user, body(req));
+      } catch (e) {
+        if (e instanceof AuthError) throw new ServiceError(e.code, e.message);
+        throw e;
+      }
+      return { users: userRows() };
+    });
+  app.post(
+    "/api/admin/users/:id/ban",
+    onUser((u, b) => auth.ban(u, b.reason)),
+  );
+  app.post(
+    "/api/admin/users/:id/unban",
+    onUser((u) => auth.unban(u)),
   );
   app.get(
     "/api/admin/competitions",
@@ -510,7 +577,7 @@ export async function buildApp(opts: AppOptions = {}) {
       (msg) => {
         const s = holder.socket;
         if (msg.type === "finished") {
-          service.finishAttempt(entryId, msg.totalPoints);
+          service.finishAttempt(entryId, msg.totalPoints, msg.results);
           liveRuns.delete(entryId);
           const placing = service.placing(entry.competitionId, user.id);
           if (s && s.readyState === s.OPEN) {

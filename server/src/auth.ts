@@ -143,7 +143,8 @@ export class AuthStore {
       throw new AuthError("nickname_invalid", "Хочны нэр 3–20 үсэг, тоо байна.");
     if (password.length < 8)
       throw new AuthError("password_short", "Нууц үг дор хаяж 8 тэмдэгт байна.");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || Number.isNaN(Date.parse(birthDate)))
+    const year = Number(birthDate.slice(0, 4));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || Number.isNaN(Date.parse(birthDate)) || year < 1900)
       throw new AuthError("birthdate_invalid", "Төрсөн огноогоо оруулна уу.");
     if (ageOn(birthDate, this.now()) < MIN_AGE)
       throw new AuthError("too_young", "18 нас хүрсэн хүн л бүртгүүлэх боломжтой.");

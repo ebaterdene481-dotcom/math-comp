@@ -76,6 +76,8 @@ describe("registration", () => {
 
   it.each([
     [{ birthDate: "2010-01-01" }, "too_young"],
+    [{ birthDate: "20234-01-01" }, "birthdate_invalid"],
+    [{ birthDate: "1850-01-01" }, "birthdate_invalid"],
     [{ acceptTerms: false }, "terms_required"],
     [{ password: "short" }, "password_short"],
     [{ nickname: "a" }, "nickname_invalid"],

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { SiteHeader } from "../SiteHeader";
 import { useEffect, useRef, useState } from "react";
 import { Results } from "./Results";
 import { useGame } from "./useGame";
@@ -213,11 +213,7 @@ export default function Practice() {
 
   return (
     <main className="wrap">
-      <header className="site-header">
-        <Link href="/" className="logo">
-          <span>5</span> секунд
-        </Link>
-      </header>
+      <SiteHeader />
 
       <section className="play">
         {game.phase === "ready" && (

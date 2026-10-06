@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import Home from "../app/page";
 import Practice from "../app/practice/page";
+import Profile from "../app/profile/page";
 import { installMockServer } from "./mock";
 
 installMockServer();
@@ -19,7 +20,9 @@ function App() {
     addEventListener("hashchange", on);
     return () => removeEventListener("hashchange", on);
   }, []);
-  return route === "practice" ? <Practice /> : <Home />;
+  if (route === "practice") return <Practice />;
+  if (route === "profile") return <Profile />;
+  return <Home />;
 }
 
 createRoot(document.getElementById("root")!).render(<App />);

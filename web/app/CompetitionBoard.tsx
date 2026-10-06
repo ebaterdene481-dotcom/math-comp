@@ -12,6 +12,8 @@ import {
   getMe,
   groupDigits,
   logout,
+  AUTH_EVENT,
+  announceAuthChange,
 } from "./lib/api";
 
 const REFRESH_MS = 15_000;
@@ -49,11 +51,17 @@ export function CompetitionBoard() {
 
   useEffect(() => {
     refresh();
-    getMe()
-      .then((r) => setUser(r.user))
-      .catch(() => {});
+    const loadMe = () =>
+      getMe()
+        .then((r) => setUser(r.user))
+        .catch(() => {});
+    loadMe();
+    window.addEventListener(AUTH_EVENT, loadMe);
     const t = setInterval(refresh, REFRESH_MS);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener(AUTH_EVENT, loadMe);
+    };
   }, [refresh]);
 
   const c = data.state === "ok" ? data.competition : null;
@@ -165,6 +173,7 @@ export function CompetitionBoard() {
                     await logout().catch(() => {});
                     setUser(null);
                     setNote(null);
+                    announceAuthChange();
                   }}
                 >
                   Гарах
@@ -181,6 +190,7 @@ export function CompetitionBoard() {
         onSignedIn={(u) => {
           setUser(u);
           setAuthOpen(false);
+          announceAuthChange();
         }}
       />
     </aside>

@@ -88,6 +88,19 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
       },
     };
   }
+  if (path === "/api/me/profile") {
+    const u = me();
+    if (!u) return { status: 401, body: { error: "signed_out", message: "Нэвтэрнэ үү." } };
+    return {
+      status: 200,
+      body: {
+        user: { ...pub(u), createdAt: new Date(Number(u.id)).toISOString() },
+        wallet: { balance: 0 },
+        stats: { competitions: 0, attempts: 0, bestPoints: null, bestRank: null },
+        history: [],
+      },
+    };
+  }
   if (path === "/api/me") return { status: 200, body: { user: me() ? pub(me()!) : null } };
   if (path === "/api/auth/logout" && method === "POST") {
     store.set("preview.session", null);

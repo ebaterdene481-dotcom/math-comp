@@ -141,6 +141,23 @@ describe("HTTP API", () => {
     await app.close();
   });
 
+  it("shows a signed-in player's profile and refuses signed-out visitors", async () => {
+    const app = await buildApp({ demo: true, now: () => NOW });
+    expect((await app.inject("/api/me/profile")).statusCode).toBe(401);
+    const reg = await app.inject({
+      method: "POST",
+      url: "/api/auth/register",
+      payload: { email: "p@b.mn", password: "password1", nickname: "Профайл", birthDate: "1990-01-01", acceptTerms: true },
+    });
+    const cookies = { session: reg.cookies.find((c) => c.name === "session")!.value };
+    const body = (await app.inject({ url: "/api/me/profile", cookies })).json();
+    expect(body.user).toMatchObject({ nickname: "Профайл", email: "p@b.mn", createdAt: NOW.toISOString() });
+    expect(body.wallet).toEqual({ balance: 0 });
+    expect(body.stats).toEqual({ competitions: 0, attempts: 0, bestPoints: null, bestRank: null });
+    expect(body.history).toEqual([]);
+    await app.close();
+  });
+
   it("refuses an under-18 registration with a Mongolian message", async () => {
     const app = await buildApp({ now: () => NOW });
     const res = await app.inject({

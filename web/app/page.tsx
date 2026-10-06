@@ -1,14 +1,11 @@
 import Link from "next/link";
+import { SiteHeader } from "./SiteHeader";
 import { CompetitionBoard } from "./CompetitionBoard";
 
 export default function Home() {
   return (
     <main className="wrap">
-      <header className="site-header">
-        <Link href="/" className="logo">
-          <span>5</span> секунд
-        </Link>
-      </header>
+      <SiteHeader />
 
       <section className="hero">
         <div>

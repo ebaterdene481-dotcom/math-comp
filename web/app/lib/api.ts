@@ -101,3 +101,25 @@ export function fmtWhen(iso: string, now = new Date()) {
   const sameDay = day.format(d) === day.format(now);
   return sameDay ? clock.format(d) : `${day.format(d).replace("/", ".")}, ${clock.format(d)}`;
 }
+
+export interface Profile {
+  user: User & { createdAt: string };
+  wallet: { balance: number };
+  stats: { competitions: number; attempts: number; bestPoints: number | null; bestRank: number | null };
+  history: Array<{
+    competitionId: string;
+    name: string;
+    status: CompetitionStatus;
+    closesAt: string;
+    attempts: number;
+    bestPoints: number;
+    rank: number;
+    players: number;
+  }>;
+}
+
+export const getProfile = () => call<Profile>("/api/me/profile");
+
+/** Fired on window after login or logout so every part of the page can refresh. */
+export const AUTH_EVENT = "auth-changed";
+export const announceAuthChange = () => window.dispatchEvent(new Event(AUTH_EVENT));

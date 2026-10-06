@@ -150,6 +150,44 @@ export async function buildApp(opts: AppOptions = {}) {
     return { ok: true };
   });
 
+  app.get("/api/me/profile", async (req, reply) => {
+    const user = auth.userForSession(req.cookies[SESSION_COOKIE]);
+    if (!user) return reply.code(401).send({ error: "signed_out", message: "Нэвтэрнэ үү." });
+
+    const mine = results.filter((r) => r.userId === user.id);
+    const history = competitions
+      .filter((c) => mine.some((r) => r.competitionId === c.id))
+      .map((c) => {
+        const board = leaderboard(results, c.id);
+        const rank = board.findIndex((l) => l.userId === user.id) + 1;
+        const own = mine.filter((r) => r.competitionId === c.id);
+        return {
+          competitionId: c.id,
+          name: c.name,
+          status: statusOf(c, now()),
+          closesAt: c.closesAt.toISOString(),
+          attempts: own.length,
+          bestPoints: board[rank - 1].points,
+          rank,
+          players: board.length,
+        };
+      })
+      .sort((a, b) => b.closesAt.localeCompare(a.closesAt));
+
+    return {
+      user: { ...toPublic(user), createdAt: user.createdAt.toISOString() },
+      // Wallet arrives with the payment phase; balance is always 0 until then.
+      wallet: { balance: 0 },
+      stats: {
+        competitions: history.length,
+        attempts: mine.length,
+        bestPoints: history.length ? Math.max(...history.map((h) => h.bestPoints)) : null,
+        bestRank: history.length ? Math.min(...history.map((h) => h.rank)) : null,
+      },
+      history,
+    };
+  });
+
   app.get("/api/me", async (req) => {
     const user = auth.userForSession(req.cookies[SESSION_COOKIE]);
     return { user: user ? toPublic(user) : null };

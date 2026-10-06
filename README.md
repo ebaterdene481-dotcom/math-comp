@@ -18,6 +18,8 @@ Product spec (Mongolian): https://claude.ai/code/artifact/ff93ef08-c8c2-4d56-9c1
 - Home page competition card: status (live / upcoming / finished), how many of the 100
   attempts are used, top 3 players, and an Оролцох button that opens login/register and,
   once signed in, shows the entry fee.
+- Profile page: account details, wallet balance (top-up and withdraw arrive with payments),
+  competitions played with best score and rank. Sign in from the header on every page.
 - Accounts: email + password, nickname, birth date (18+), terms acceptance; session in an
   httpOnly cookie. In memory for now.
 
@@ -38,6 +40,8 @@ web/      Next.js front end
   app/page.tsx            home page
   app/CompetitionBoard.tsx  competition card on the home page
   app/AuthDialog.tsx      login / register window
+  app/SiteHeader.tsx      logo and sign-in / profile link
+  app/profile/page.tsx    player profile
   app/practice/page.tsx   practice game
 ```
 

@@ -168,7 +168,10 @@ function CompetitionView({
             </div>
             <div>
               <dt>Нийт оролцогчид</dt>
-              <dd>{standings.length}</dd>
+              <dd>
+                {c.attemptsUsed}
+                <small>/{c.maxAttempts}</small>
+              </dd>
             </div>
             <div>
               <dt>Тэргүүлэгчийн оноо</dt>

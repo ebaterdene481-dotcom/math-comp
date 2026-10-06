@@ -15,7 +15,7 @@ const out = await build({
   jsx: "automatic",
   target: "es2020",
   loader: { ".svg": "dataurl" },
-  alias: { "next/link": join(here, "link-shim.tsx") },
+  alias: { "next/link": join(here, "link-shim.tsx"), "next/navigation": join(here, "navigation-shim.ts") },
   define: {
     "process.env.NEXT_PUBLIC_API_URL": '"http://preview.local"',
     "process.env.NEXT_PUBLIC_GAME_WS_URL": '"ws://preview.local/ws/practice"',

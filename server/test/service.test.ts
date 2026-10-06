@@ -82,3 +82,30 @@ describe("wallet and entries", () => {
     expect(svc.profile("a").history[0]).toMatchObject({ rank: 1, attempts: 1, bestPoints: 600000, players: 2 });
   });
 });
+
+describe("past competitions", () => {
+  it("lists finished competitions newest first with their winner", () => {
+    const now = new Date("2026-10-06T00:00:00Z");
+    const s = new CompetitionService(() => now, (id) => ({ a: "Ану", b: "Бат" })[id]);
+    const day = 86_400_000;
+    const mk = (id: string, closedDaysAgo: number) => ({
+      id,
+      name: id,
+      opensAt: new Date(now.getTime() - (closedDaysAgo + 1) * day),
+      closesAt: new Date(now.getTime() - closedDaysAgo * day),
+      entryFee: 5000,
+      prize: "Утас",
+      maxAttempts: 100,
+      attemptsUsed: 10,
+    });
+    s.competitions.push(mk("old", 20), mk("recent", 2), { ...mk("live", -1), opensAt: new Date(now.getTime() - day) });
+    s.results.push(
+      { competitionId: "recent", userId: "a", points: 800000, finishedAt: new Date(now.getTime() - 3 * day) },
+      { competitionId: "recent", userId: "b", points: 900000, finishedAt: new Date(now.getTime() - 3 * day) },
+    );
+    const past = s.pastCompetitions();
+    expect(past.map((c) => c.id)).toEqual(["recent", "old"]);
+    expect(past[0]).toMatchObject({ status: "finished", players: 2, winner: { nickname: "Бат", points: 900000 } });
+    expect(past[1].winner).toBeNull();
+  });
+});

@@ -26,6 +26,8 @@ Product spec (Mongolian): https://claude.ai/code/artifact/ff93ef08-c8c2-4d56-9c1
 - Wallet page: balance, transactions, and test top-ups in demo mode (no payment provider yet).
 - Competition page (/competition): prize, fee, times, attempts left, rules, totals, the
   player's own place and the gap to the next one up, and the current leaders table.
+- Past competitions page (/competitions): every closed competition with its prize and
+  winner; each opens its own competition page (/competition?id=…) with the final results.
 - Profile page: account details, wallet balance, competitions played with best score and
   rank. Sign in from the header on every page.
 - Accounts: email + password, nickname, birth date (18+), terms acceptance; session in an
@@ -54,7 +56,8 @@ web/      Next.js front end
   app/profile/page.tsx    player profile
   app/wallet/page.tsx     wallet balance and transactions
   app/play/page.tsx       paid 100-problem run
-  app/competition/page.tsx  competition details, rules and current leaders
+  app/competition/page.tsx  competition details, rules and leaders (?id= for a past one)
+  app/competitions/page.tsx past competitions and their winners
   app/practice/page.tsx   practice game
   app/game/               game screen, socket hook and results shared by practice and play
 ```

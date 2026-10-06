@@ -39,5 +39,48 @@ export function seedDemo(addPlayer: (id: string, nickname: string) => void, now:
       finishedAt: new Date(now.getTime() - (i + 1) * 9 * 60_000),
     };
   });
-  return { competitions: [competition], results };
+  // Two earlier competitions, already decided, for the past competitions page.
+  const day = 24 * hour;
+  const past: Array<[Competition, number[]]> = [
+    [
+      {
+        id: "demo-past-2",
+        name: "Зуны тэмцээн №2",
+        opensAt: new Date(now.getTime() - 9 * day),
+        closesAt: new Date(now.getTime() - 8 * day),
+        entryFee: 5000,
+        prize: "Утасгүй чихэвч",
+        prizeImage: "/prizes/demo-headphones.svg",
+        maxAttempts: MAX_ATTEMPTS,
+        attemptsUsed: MAX_ATTEMPTS,
+      },
+      [905512, 921077, 887340, 899815, 866120, 852400, 0, 830995],
+    ],
+    [
+      {
+        id: "demo-past-1",
+        name: "Зуны тэмцээн №1",
+        opensAt: new Date(now.getTime() - 23 * day),
+        closesAt: new Date(now.getTime() - 22 * day),
+        entryFee: 2000,
+        prize: "Тоглоомын хулгана",
+        prizeImage: "/prizes/demo-mouse.svg",
+        maxAttempts: MAX_ATTEMPTS,
+        attemptsUsed: 74,
+      },
+      [880410, 0, 869902, 0, 893377, 841230, 815600, 0],
+    ],
+  ];
+  for (const [c, scores] of past) {
+    scores.forEach((points, i) => {
+      if (points > 0)
+        results.push({
+          competitionId: c.id,
+          userId: `demo-user-${i}`,
+          points,
+          finishedAt: new Date(c.closesAt.getTime() - (i + 2) * 37 * 60_000),
+        });
+    });
+  }
+  return { competitions: [competition, ...past.map(([c]) => c)], results };
 }

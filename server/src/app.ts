@@ -79,6 +79,8 @@ export async function buildApp(opts: AppOptions = {}) {
     return { competition, leaders: leaders.map(({ rank, nickname, points }) => ({ rank, nickname, points })) };
   });
 
+  app.get("/api/competitions/past", async () => ({ competitions: service.pastCompetitions() }));
+
   app.get(
     "/api/competitions/:id/standings",
     guarded((req) => {

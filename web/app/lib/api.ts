@@ -135,6 +135,13 @@ export interface Standing {
   you: boolean;
 }
 
+export interface PastCompetition extends CompetitionInfo {
+  players: number;
+  winner: { nickname: string; points: number } | null;
+}
+
+export const getPastCompetitions = () => call<{ competitions: PastCompetition[] }>("/api/competitions/past");
+
 export const getStandings = (competitionId: string) =>
   call<{ competition: CompetitionInfo; standings: Standing[] }>(`/api/competitions/${competitionId}/standings`);
 

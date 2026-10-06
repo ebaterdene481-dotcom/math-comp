@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270" role="img" aria-label="Утасгүй чихэвч">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eef3f1"/>
+      <stop offset="1" stop-color="#dde8e4"/>
+    </linearGradient>
+    <linearGradient id="cup" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b3d44"/>
+      <stop offset="1" stop-color="#17181c"/>
+    </linearGradient>
+  </defs>
+  <rect width="480" height="270" fill="url(#bg)"/>
+  <ellipse cx="240" cy="236" rx="120" ry="10" fill="#000" opacity="0.08"/>
+  <path d="M150 168 C150 70 330 70 330 168" fill="none" stroke="#24262b" stroke-width="18" stroke-linecap="round"/>
+  <path d="M158 160 C160 88 320 88 322 160" fill="none" stroke="#5a5d66" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+  <rect x="118" y="148" width="64" height="86" rx="28" fill="url(#cup)"/>
+  <rect x="298" y="148" width="64" height="86" rx="28" fill="url(#cup)"/>
+  <rect x="166" y="160" width="14" height="62" rx="7" fill="#2fbf8a"/>
+  <rect x="300" y="160" width="14" height="62" rx="7" fill="#2fbf8a"/>
+</svg>

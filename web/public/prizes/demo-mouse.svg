@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270" role="img" aria-label="Тоглоомын хулгана">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f3eff6"/>
+      <stop offset="1" stop-color="#e6dfee"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#40424a"/>
+      <stop offset="1" stop-color="#16171b"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7b5be0"/>
+      <stop offset="1" stop-color="#e46fa0"/>
+    </linearGradient>
+  </defs>
+  <rect width="480" height="270" fill="url(#bg)"/>
+  <ellipse cx="240" cy="240" rx="80" ry="9" fill="#000" opacity="0.08"/>
+  <path d="M240 40 C300 40 318 100 318 150 C318 205 284 236 240 236 C196 236 162 205 162 150 C162 100 180 40 240 40 Z" fill="url(#body)"/>
+  <path d="M240 40 L240 118" stroke="#5a5d66" stroke-width="3"/>
+  <rect x="232" y="66" width="16" height="30" rx="8" fill="#5a5d66"/>
+  <path d="M176 176 C190 214 290 214 304 176" fill="none" stroke="url(#glow)" stroke-width="6" stroke-linecap="round"/>
+</svg>

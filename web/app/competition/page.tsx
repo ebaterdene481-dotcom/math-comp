@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { STATUS_TEXT, Slots, avatarColor } from "../CompetitionBoard";
 import { JoinButton } from "../JoinButton";
 import { SiteHeader } from "../SiteHeader";
@@ -38,15 +39,31 @@ function TimeLeft({ iso }: { iso: string }) {
   return <>{h > 0 ? `${h} цаг ${mins % 60} минут` : `${mins} минут`}</>;
 }
 
-/** The competition: what it is, how to take part, and everyone's best score so far. */
+/**
+ * One competition: what it is, how to take part, and everyone's best score.
+ * `?id=` picks a past competition; without it the current one is shown.
+ */
 export default function CompetitionPage() {
+  return (
+    <Suspense>
+      <CompetitionLoader />
+    </Suspense>
+  );
+}
+
+function CompetitionLoader() {
+  const id = useSearchParams().get("id");
   const [state, setState] = useState<Load>({ kind: "loading" });
 
   const load = useCallback(async () => {
     try {
-      const { competition } = await getCurrentCompetition();
-      if (!competition) return setState({ kind: "none" });
-      const r = await getStandings(competition.id);
+      let competitionId = id;
+      if (!competitionId) {
+        const { competition } = await getCurrentCompetition();
+        if (!competition) return setState({ kind: "none" });
+        competitionId = competition.id;
+      }
+      const r = await getStandings(competitionId);
       setState({
         kind: "ok",
         competition: r.competition,
@@ -55,7 +72,7 @@ export default function CompetitionPage() {
     } catch {
       setState((s) => (s.kind === "ok" ? s : { kind: "none" }));
     }
-  }, []);
+  }, [id]);
 
   useEffect(() => {
     load();
@@ -139,7 +156,7 @@ function CompetitionView({
                   <dd className="num">{fmtWhen(c.opensAt)}</dd>
                 </div>
                 <div>
-                  <dt>Хаагдах</dt>
+                  <dt>{c.status === "finished" ? "Хаагдсан" : "Хаагдах"}</dt>
                   <dd>
                     <span className="num">{fmtWhen(c.closesAt)}</span>
                     {c.status === "live" && (
@@ -151,14 +168,13 @@ function CompetitionView({
                 </div>
               </dl>
               <Slots used={c.attemptsUsed} max={c.maxAttempts} />
-              <div className="join">
-                <JoinButton competition={c} onEntered={reload} />
-                {c.status === "finished" && standings[0] && (
-                  <p className="winner">
-                    Ялагч: <b>{standings[0].nickname}</b>
-                  </p>
-                )}
-              </div>
+              {c.status === "finished" ? (
+                <Winner c={c} winner={standings[0]} />
+              ) : (
+                <div className="join">
+                  <JoinButton competition={c} onEntered={reload} />
+                </div>
+              )}
             </div>
           </article>
           <dl className="tiles comp-tiles">
@@ -174,7 +190,7 @@ function CompetitionView({
               </dd>
             </div>
             <div>
-              <dt>Тэргүүлэгчийн оноо</dt>
+              <dt>{c.status === "finished" ? "Ялагчийн оноо" : "Тэргүүлэгчийн оноо"}</dt>
               <dd>{best === null ? "–" : fmtPoints(best)}</dd>
             </div>
           </dl>
@@ -213,8 +229,8 @@ function CompetitionView({
         aria-labelledby="leaders-title"
       >
         <div className="standings-head">
-          <h2 id="leaders-title">Одоогийн тэргүүлэгчид</h2>
-          <span className="meta">15 секунд тутам шинэчлэгдэнэ</span>
+          <h2 id="leaders-title">{c.status === "finished" ? "Эцсийн дүн" : "Одоогийн тэргүүлэгчид"}</h2>
+          {c.status !== "finished" && <span className="meta">15 секунд тутам шинэчлэгдэнэ</span>}
         </div>
         {standings.length === 0 ? (
           <p className="meta">Одоогоор оноо алга. Эхний оролцогч болоорой.</p>
@@ -284,7 +300,31 @@ function CompetitionView({
           оноог авсан мөч бөгөөд оноо тэнцвэл эрт авсан нь дээр.
         </p>
       </section>
+      <div className="profile-foot">
+        <Link href="/competitions" className="btn btn-quiet">
+          Өмнөх тэмцээнүүд
+        </Link>
+      </div>
     </>
+  );
+}
+
+/** Who won a closed competition, and what they took home. */
+function Winner({ c, winner }: { c: CompetitionInfo; winner?: Standing }) {
+  if (!winner) return <p className="meta winner-none">Энэ тэмцээнд оноо авсан оролцогч байгаагүй.</p>;
+  return (
+    <div className="winner-card">
+      <span className="avatar avatar-lg" style={{ "--av": avatarColor(winner.nickname) } as React.CSSProperties} aria-hidden="true">
+        {[...winner.nickname][0]?.toUpperCase()}
+      </span>
+      <div>
+        <span className="stat-label">Ялагч</span>
+        <b className="winner-name">{winner.nickname}</b>
+        <span className="winner-meta">
+          {fmtPoints(winner.points)} оноо · {c.prize}
+        </span>
+      </div>
+    </div>
   );
 }
 

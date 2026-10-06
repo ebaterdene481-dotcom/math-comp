@@ -108,6 +108,23 @@ export class CompetitionService {
     };
   }
 
+  /** Finished competitions, newest first, each with its winner. */
+  pastCompetitions() {
+    const now = this.now();
+    return this.competitions
+      .filter((c) => statusOf(c, now) === "finished")
+      .sort((a, b) => b.closesAt.getTime() - a.closesAt.getTime())
+      .map((c) => {
+        const board = this.standings(c.id);
+        const w = board[0];
+        return {
+          ...this.publicCompetition(c),
+          players: board.length,
+          winner: w ? { nickname: w.nickname, points: w.points } : null,
+        };
+      });
+  }
+
   /** Full ranking: each player's best attempt, ties to whoever got there first. */
   standings(competitionId: string) {
     return leaderboard(this.results, competitionId).map((l, i) => ({

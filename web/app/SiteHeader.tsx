@@ -25,6 +25,11 @@ export function SiteHeader() {
       <Link href="/" className="logo">
         <span>5</span> секунд
       </Link>
+      <nav className="header-nav">
+        <Link href="/competitions" className="header-link">
+          <span className="long">Өмнөх тэмцээнүүд</span>
+          <span className="short">Тэмцээнүүд</span>
+        </Link>
       {user === null && (
         <button type="button" className="btn btn-quiet header-btn" onClick={() => setAuthOpen(true)}>
           Нэвтрэх
@@ -38,6 +43,7 @@ export function SiteHeader() {
           {user.nickname}
         </Link>
       )}
+      </nav>
       <AuthDialog
         open={authOpen}
         onClose={() => setAuthOpen(false)}

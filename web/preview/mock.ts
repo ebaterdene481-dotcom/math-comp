@@ -3,7 +3,16 @@
 // session, wallet and entries); accounts and wallet state are kept in localStorage.
 
 import { API_URL } from "../app/lib/api";
-import prizeImage from "../public/prizes/demo-phone.svg";
+import phoneImage from "../public/prizes/demo-phone.svg";
+import headphonesImage from "../public/prizes/demo-headphones.svg";
+import mouseImage from "../public/prizes/demo-mouse.svg";
+
+// The preview is one file, so prize pictures travel inside it.
+const PRIZE_IMAGES: Record<string, string> = {
+  "/prizes/demo-phone.svg": phoneImage,
+  "/prizes/demo-headphones.svg": headphonesImage,
+  "/prizes/demo-mouse.svg": mouseImage,
+};
 import { seedDemo } from "../../server/src/demo";
 import { PRACTICE_PER_LEVEL, generateProblems } from "../../server/src/problems";
 import { CompetitionService, ServiceError, type Entry, type WalletTx } from "../../server/src/service";
@@ -44,13 +53,14 @@ const pub = (u: StoredUser) => ({ id: u.id, email: u.email, nickname: u.nickname
 /** Wallet, entries and scores survive a reload; the sample competition is rebuilt each time. */
 function loadService() {
   const demo = seedDemo((id, nickname) => demoNames.set(id, nickname), new Date());
-  const comp = { ...demo.competitions[0], prizeImage };
+  const all = demo.competitions.map((c) => ({ ...c, prizeImage: c.prizeImage && PRIZE_IMAGES[c.prizeImage] }));
+  const comp = all[0];
   const saved = store.get<{ txs: WalletTx[]; entries: Entry[]; results: typeof demo.results; used: number } | null>(
     "preview.service",
     null,
   );
   if (saved) comp.attemptsUsed = saved.used;
-  service.competitions.push(comp);
+  service.competitions.push(...all);
   service.results.push(...demo.results);
   if (!saved) return;
   service.txs.push(...saved.txs.map((t) => ({ ...t, at: new Date(t.at) })));
@@ -89,6 +99,9 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
       status: 200,
       body: { competition, leaders: leaders.map(({ rank, nickname, points }) => ({ rank, nickname, points })) },
     };
+  }
+  if (path === "/api/competitions/past") {
+    return { status: 200, body: { competitions: service.pastCompetitions() } };
   }
   const standings = path.match(/^\/api\/competitions\/([^/]+)\/standings$/);
   if (standings) {

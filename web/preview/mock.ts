@@ -25,6 +25,7 @@ import {
   type WalletTx,
   type Withdrawal,
 } from "../../server/src/service";
+import { passwordProblem } from "../../server/src/password";
 import { COUNTDOWN_MS, GameSession, systemClock, type ClientMessage } from "../../server/src/session";
 
 const demoNames = new Map<string, string>();
@@ -288,7 +289,8 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("email_invalid", "И-мэйл хаяг буруу байна.");
     if (!/^[\p{L}\p{N}_.-]{3,20}$/u.test(nickname))
       return fail("nickname_invalid", "Хочны нэр 3–20 үсэг, тоо байна.");
-    if (String(b.password ?? "").length < 8) return fail("password_short", "Нууц үг дор хаяж 8 тэмдэгт байна.");
+    const weak = passwordProblem(String(b.password ?? ""));
+    if (weak) return fail("password_weak", weak);
     if (typeof b.passwordConfirm === "string" && b.passwordConfirm !== b.password) return MISMATCH();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return fail("birthdate_invalid", "Төрсөн огноогоо оруулна уу.");
     if (ageOn(birth, new Date()) < 18) return fail("too_young", "18 нас хүрсэн хүн л бүртгүүлэх боломжтой.");
@@ -320,7 +322,8 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
     return { status: 200, body: { ok: true, ...(u ? issueLink(u.id, "reset") : {}) } };
   }
   if (path === "/api/auth/reset" && method === "POST") {
-    if (String(b.password ?? "").length < 8) return fail("password_short", "Нууц үг дор хаяж 8 тэмдэгт байна.");
+    const weak = passwordProblem(String(b.password ?? ""));
+    if (weak) return fail("password_weak", weak);
     if (typeof b.passwordConfirm === "string" && b.passwordConfirm !== b.password) return MISMATCH();
     const u = takeLink(b.token, "reset");
     if (!u)

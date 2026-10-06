@@ -63,7 +63,7 @@ describe("leaderboard", () => {
 describe("registration", () => {
   const valid = {
     email: "bat@example.mn",
-    password: "secret123",
+    password: "Secret12!",
     nickname: "Бат_01",
     birthDate: "2000-05-01",
     acceptTerms: true,
@@ -79,12 +79,23 @@ describe("registration", () => {
     [{ birthDate: "20234-01-01" }, "birthdate_invalid"],
     [{ birthDate: "1850-01-01" }, "birthdate_invalid"],
     [{ acceptTerms: false }, "terms_required"],
-    [{ password: "short" }, "password_short"],
+    [{ password: "Sh0rt!" }, "password_weak"],
+    [{ password: "secret12!" }, "password_weak"],
+    [{ password: "Secretxx!" }, "password_weak"],
+    [{ password: "Secret123" }, "password_weak"],
     [{ nickname: "a" }, "nickname_invalid"],
     [{ email: "nope" }, "email_invalid"],
   ])("rejects %j", async (change, code) => {
     const store = new AuthStore(() => NOW);
     await expect(store.register({ ...valid, ...change })).rejects.toMatchObject({ code });
+  });
+
+  it("names every missing part of a weak password, and takes Cyrillic capitals", async () => {
+    const store = new AuthStore(() => NOW);
+    await expect(store.register({ ...valid, password: "abcdefgh" })).rejects.toMatchObject({
+      message: "Нууц үгэнд нэг том үсэг, нэг тоо, нэг тэмдэгт (!, @, #, ? гэх мэт) байх ёстой.",
+    });
+    await expect(store.register({ ...valid, password: "Өнөөдөр2026!" })).resolves.toBeDefined();
   });
 
   it("rejects a taken email or nickname, and logs in with the right password only", async () => {
@@ -94,7 +105,7 @@ describe("registration", () => {
     await expect(store.register({ ...valid, email: "x@y.mn", nickname: "бат_01" })).rejects.toMatchObject({
       code: "nickname_taken",
     });
-    await expect(store.login("BAT@example.mn", "secret123")).resolves.toMatchObject({ nickname: "Бат_01" });
+    await expect(store.login("BAT@example.mn", "Secret12!")).resolves.toMatchObject({ nickname: "Бат_01" });
     await expect(store.login("bat@example.mn", "wrong-pass")).rejects.toBeInstanceOf(AuthError);
   });
 });
@@ -121,7 +132,7 @@ describe("HTTP API", () => {
     const reg = await app.inject({
       method: "POST",
       url: "/api/auth/register",
-      payload: { email: "a@b.mn", password: "password1", nickname: "Анар", birthDate: "1999-01-01", acceptTerms: true },
+      payload: { email: "a@b.mn", password: "Password1!", nickname: "Анар", birthDate: "1999-01-01", acceptTerms: true },
     });
     expect(reg.statusCode).toBe(200);
     const cookie = reg.cookies.find((c) => c.name === "session")!;
@@ -149,7 +160,7 @@ describe("HTTP API", () => {
     const reg = await app.inject({
       method: "POST",
       url: "/api/auth/register",
-      payload: { email: "p@b.mn", password: "password1", nickname: "Профайл", birthDate: "1990-01-01", acceptTerms: true },
+      payload: { email: "p@b.mn", password: "Password1!", nickname: "Профайл", birthDate: "1990-01-01", acceptTerms: true },
     });
     const cookies = { session: reg.cookies.find((c) => c.name === "session")!.value };
     const body = (await app.inject({ url: "/api/me/profile", cookies })).json();
@@ -165,7 +176,7 @@ describe("HTTP API", () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/auth/register",
-      payload: { email: "k@b.mn", password: "password1", nickname: "Хүүхэд", birthDate: "2012-01-01", acceptTerms: true },
+      payload: { email: "k@b.mn", password: "Password1!", nickname: "Хүүхэд", birthDate: "2012-01-01", acceptTerms: true },
     });
     expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ error: "too_young", message: expect.stringContaining("18") });

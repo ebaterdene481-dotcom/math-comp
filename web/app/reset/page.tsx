@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { type FormEvent, Suspense, useState } from "react";
+import { PasswordRules } from "../PasswordRules";
 import { SiteHeader } from "../SiteHeader";
 import { ApiError, announceAuthChange, resetPassword } from "../lib/api";
+import { passwordProblem } from "../lib/password";
 
 const MISMATCH = "Давтан оруулсан нууц үг таарахгүй байна.";
 
@@ -29,12 +31,15 @@ function Reset() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [pw, setPw] = useState("");
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const password = String(f.get("password") ?? "");
     const confirm = String(f.get("passwordConfirm") ?? "");
+    const weak = passwordProblem(password);
+    if (weak) return setError(weak);
     if (password !== confirm) return setError(MISMATCH);
     setBusy(true);
     setError(null);
@@ -66,8 +71,16 @@ function Reset() {
       <form onSubmit={submit}>
         <label>
           Шинэ нууц үг
-          <input name="password" type="password" required minLength={8} autoComplete="new-password" />
-          <small>Дор хаяж 8 тэмдэгт.</small>
+          <input
+            name="password"
+            type="password"
+            required
+            minLength={8}
+            autoComplete="new-password"
+            aria-describedby="pw-rules"
+            onInput={(e) => setPw(e.currentTarget.value)}
+          />
+          <PasswordRules value={pw} id="pw-rules" />
         </label>
         <label>
           Нууц үгээ давтах

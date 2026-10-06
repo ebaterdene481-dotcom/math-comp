@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import type { Mail } from "../src/mail.js";
 
-const PLAYER = { email: "k@b.mn", password: "password1", nickname: "Хасар", birthDate: "1990-01-01", acceptTerms: true };
+const PLAYER = { email: "k@b.mn", password: "Password1!", nickname: "Хасар", birthDate: "1990-01-01", acceptTerms: true };
 
 async function setup(now = () => new Date()) {
   const sent: Mail[] = [];
@@ -27,7 +27,7 @@ describe("email verification and password reset", () => {
     const r = await app.inject({
       method: "POST",
       url: "/api/auth/register",
-      payload: { ...PLAYER, passwordConfirm: "password2" },
+      payload: { ...PLAYER, passwordConfirm: "Password2!" },
     });
     expect(r.json()).toMatchObject({ error: "password_mismatch" });
     expect(sent).toHaveLength(0);
@@ -108,14 +108,14 @@ describe("email verification and password reset", () => {
     const mismatch = await app.inject({
       method: "POST",
       url: "/api/auth/reset",
-      payload: { token: tokenIn(sent[1]), password: "newpassword", passwordConfirm: "other" },
+      payload: { token: tokenIn(sent[1]), password: "NewPass1!", passwordConfirm: "other" },
     });
     expect(mismatch.json().error).toBe("password_mismatch");
 
     const r = await app.inject({
       method: "POST",
       url: "/api/auth/reset",
-      payload: { token: tokenIn(sent[1]), password: "newpassword", passwordConfirm: "newpassword" },
+      payload: { token: tokenIn(sent[1]), password: "NewPass1!", passwordConfirm: "NewPass1!" },
     });
     expect(r.statusCode).toBe(200);
     // Opening the reset link proves the email, too.
@@ -125,7 +125,7 @@ describe("email verification and password reset", () => {
 
     const oldPw = await app.inject({ method: "POST", url: "/api/auth/login", payload: { email: PLAYER.email, password: PLAYER.password } });
     expect(oldPw.statusCode).toBe(400);
-    const newPw = await app.inject({ method: "POST", url: "/api/auth/login", payload: { email: PLAYER.email, password: "newpassword" } });
+    const newPw = await app.inject({ method: "POST", url: "/api/auth/login", payload: { email: PLAYER.email, password: "NewPass1!" } });
     expect(newPw.statusCode).toBe(200);
 
     // Reset links last an hour.
@@ -134,7 +134,7 @@ describe("email verification and password reset", () => {
     const late = await app.inject({
       method: "POST",
       url: "/api/auth/reset",
-      payload: { token: tokenIn(sent[2]), password: "another123" },
+      payload: { token: tokenIn(sent[2]), password: "Another1!" },
     });
     expect(late.json().error).toBe("link_invalid");
     await app.close();

@@ -11,6 +11,8 @@ import Admin from "../app/admin/page";
 import Play from "../app/play/page";
 import Competition from "../app/competition/page";
 import Competitions from "../app/competitions/page";
+import Verify from "../app/verify/page";
+import Reset from "../app/reset/page";
 import { installMockServer } from "./mock";
 
 installMockServer();
@@ -36,6 +38,8 @@ function App() {
   // key: a different competition id mounts a fresh page.
   if (route === "competition" || route === "leaderboard") return <Competition key={query} />;
   if (route === "competitions") return <Competitions />;
+  if (route === "verify") return <Verify key={query} />;
+  if (route === "reset") return <Reset key={query} />;
   return <Home />;
 }
 

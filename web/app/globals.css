@@ -554,19 +554,22 @@ a {
   color: var(--on-pen);
 }
 
-.auth form {
+.auth form,
+.auth-form form {
   display: grid;
   gap: 14px;
 }
 
-.auth label {
+.auth label,
+.auth-form label {
   display: grid;
   gap: 4px;
   font-weight: 600;
   font-size: 15px;
 }
 
-.auth input:not([type="checkbox"]) {
+.auth input:not([type="checkbox"]),
+.auth-form input:not([type="checkbox"]) {
   height: 46px;
   padding: 0 12px;
   border: var(--bw) solid var(--line);
@@ -576,13 +579,15 @@ a {
   background: var(--paper);
 }
 
-.auth input:focus {
+.auth input:focus,
+.auth-form input:focus {
   outline: none;
   border-color: var(--pen);
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-.auth small {
+.auth small,
+.auth-form small {
   font-weight: 400;
   font-size: 13px;
   color: var(--ink-soft);
@@ -611,12 +616,14 @@ a {
   font-size: 15px;
 }
 
-.auth .btn {
+.auth .btn,
+.auth-form .btn {
   width: 100%;
   margin-top: 4px;
 }
 
-.auth .btn:disabled {
+.auth .btn:disabled,
+.auth-form .btn:disabled {
   opacity: 0.6;
   cursor: default;
 }
@@ -2876,4 +2883,98 @@ a {
     border-radius: 22px;
     overflow: visible;
   }
+}
+
+/* Forgot password, email links */
+
+.auth-link {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 400 15px var(--font-body);
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.auth-forgot {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.auth-forgot p {
+  margin: 0;
+}
+
+.dev-link {
+  font-size: 14px;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.verify-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin: 0 0 20px;
+  padding: 14px 20px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border-left: 4px solid var(--red);
+  font-size: 15px;
+}
+
+.verify-notice p {
+  margin: 0;
+  flex: 1 1 320px;
+}
+
+.verify-notice b {
+  overflow-wrap: anywhere;
+}
+
+.verify-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.verify-actions .btn {
+  min-height: 40px;
+  padding: 0 18px;
+  font-size: 15px;
+}
+
+.link-page {
+  display: grid;
+  justify-items: center;
+  padding: 24px 0 64px;
+}
+
+.link-page .sheet {
+  max-width: 460px;
+  display: grid;
+  gap: 12px;
+}
+
+.link-page h1 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+
+.link-page p {
+  margin: 0;
+}
+
+.link-page .sheet > .btn {
+  justify-self: start;
+  margin-top: 8px;
 }

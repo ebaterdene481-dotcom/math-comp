@@ -38,6 +38,8 @@ interface StoredUser {
   email: string;
   nickname: string;
   password: string;
+  /** Set until the emailed link is opened. Accounts saved before this existed count as verified. */
+  unverified?: boolean;
 }
 
 const store = {
@@ -62,7 +64,43 @@ const users = () => {
   return list.some((u) => u.email === ADMIN.email) ? list : [ADMIN, ...list];
 };
 const me = () => users().find((u) => u.id === store.get<string | null>("preview.session", null)) ?? null;
-const pub = (u: StoredUser) => ({ id: u.id, email: u.email, nickname: u.nickname, isAdmin: u.email === ADMIN.email });
+const pub = (u: StoredUser) => ({
+  id: u.id,
+  email: u.email,
+  nickname: u.nickname,
+  isAdmin: u.email === ADMIN.email,
+  emailVerified: !u.unverified,
+});
+
+const saveUser = (u: StoredUser) => store.set("preview.users", users().map((x) => (x.id === u.id ? u : x)));
+
+/** Emailed links. There is no mail here, so the link is handed back as devLink and opens in this page. */
+interface StoredToken {
+  token: string;
+  userId: string;
+  kind: "verify" | "reset";
+  expires: number;
+}
+function issueLink(userId: string, kind: StoredToken["kind"]) {
+  const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  const others = store.get<StoredToken[]>("preview.tokens", []).filter((t) => !(t.userId === userId && t.kind === kind));
+  const ms = kind === "verify" ? 24 * 3600_000 : 3600_000;
+  store.set("preview.tokens", [...others, { token, userId, kind, expires: Date.now() + ms }]);
+  return { devLink: `#${kind}?token=${token}` };
+}
+function takeLink(token: unknown, kind: StoredToken["kind"]) {
+  const all = store.get<StoredToken[]>("preview.tokens", []);
+  const t = all.find((x) => x.token === token && x.kind === kind && x.expires >= Date.now());
+  const u = t && users().find((x) => x.id === t.userId);
+  if (!t || !u) return undefined;
+  store.set("preview.tokens", all.filter((x) => x !== t));
+  return u;
+}
+const MISMATCH = () => fail("password_mismatch", "Давтан оруулсан нууц үг таарахгүй байна.");
+const unverified = {
+  status: 403,
+  body: { error: "email_unverified", message: "Эхлээд имэйлээ баталгаажуулна уу. Бид таны имэйл рүү холбоос илгээсэн." },
+};
 
 type SavedCompetition = Omit<Competition, "opensAt" | "closesAt" | "award"> & {
   opensAt: string;
@@ -184,6 +222,7 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
   if (enter && method === "POST") {
     const u = me();
     if (!u) return signedOut;
+    if (u.unverified) return unverified;
     const entry = service.enter(u.id, enter[1]);
     save();
     return { status: 200, body: { entry: service.publicEntry(entry), balance: service.balance(u.id) } };
@@ -210,6 +249,7 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
   if (path === "/api/wallet/withdraw" && method === "POST") {
     const u = me();
     if (!u) return signedOut;
+    if (u.unverified) return unverified;
     const w = service.requestWithdrawal(u.id, b);
     save();
     return { status: 200, body: { withdrawal: service.publicWithdrawal(w), balance: service.balance(u.id) } };
@@ -249,6 +289,7 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
     if (!/^[\p{L}\p{N}_.-]{3,20}$/u.test(nickname))
       return fail("nickname_invalid", "Хочны нэр 3–20 үсэг, тоо байна.");
     if (String(b.password ?? "").length < 8) return fail("password_short", "Нууц үг дор хаяж 8 тэмдэгт байна.");
+    if (typeof b.passwordConfirm === "string" && b.passwordConfirm !== b.password) return MISMATCH();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return fail("birthdate_invalid", "Төрсөн огноогоо оруулна уу.");
     if (ageOn(birth, new Date()) < 18) return fail("too_young", "18 нас хүрсэн хүн л бүртгүүлэх боломжтой.");
     if (b.acceptTerms !== true) return fail("terms_required", "Үйлчилгээний нөхцөлийг зөвшөөрнө үү.");
@@ -256,10 +297,38 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
     if (all.some((u) => u.email === email)) return fail("email_taken", "Энэ и-мэйлээр бүртгэл үүссэн байна.");
     if (all.some((u) => u.nickname.toLowerCase() === nickname.toLowerCase()))
       return fail("nickname_taken", "Энэ хочны нэрийг өөр хүн авсан байна.");
-    const u = { id: String(Date.now()), email, nickname, password: String(b.password) };
+    const u = { id: String(Date.now()), email, nickname, password: String(b.password), unverified: true };
     store.set("preview.users", [...all, u]);
     store.set("preview.session", u.id);
-    return { status: 200, body: { user: pub(u) } };
+    return { status: 200, body: { user: pub(u), ...issueLink(u.id, "verify") } };
+  }
+  if (path === "/api/auth/verify" && method === "POST") {
+    const u = takeLink(b.token, "verify");
+    if (!u) return fail("link_invalid", "Холбоос хүчингүй эсвэл хугацаа нь дууссан байна. Шинэ холбоос авна уу.");
+    const done = { ...u, unverified: undefined };
+    saveUser(done);
+    return { status: 200, body: { user: pub(done) } };
+  }
+  if (path === "/api/auth/resend-verification" && method === "POST") {
+    const u = me();
+    if (!u) return signedOut;
+    return { status: 200, body: { ok: true, ...(u.unverified ? issueLink(u.id, "verify") : {}) } };
+  }
+  if (path === "/api/auth/forgot" && method === "POST") {
+    const email = String(b.email ?? "").trim().toLowerCase();
+    const u = users().find((x) => x.email === email);
+    return { status: 200, body: { ok: true, ...(u ? issueLink(u.id, "reset") : {}) } };
+  }
+  if (path === "/api/auth/reset" && method === "POST") {
+    if (String(b.password ?? "").length < 8) return fail("password_short", "Нууц үг дор хаяж 8 тэмдэгт байна.");
+    if (typeof b.passwordConfirm === "string" && b.passwordConfirm !== b.password) return MISMATCH();
+    const u = takeLink(b.token, "reset");
+    if (!u)
+      return fail("link_invalid", "Нууц үг сэргээх холбоос хүчингүй эсвэл хугацаа нь дууссан байна. Дахин хүснэ үү.");
+    const done = { ...u, password: String(b.password), unverified: undefined };
+    saveUser(done);
+    store.set("preview.session", u.id);
+    return { status: 200, body: { user: pub(done) } };
   }
   return { status: 404, body: { error: "not_found" } };
 }

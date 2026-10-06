@@ -8,6 +8,7 @@ import websocket from "@fastify/websocket";
 import { PRACTICE_PER_LEVEL, generateProblems } from "./problems.js";
 import { AuthError, AuthStore, toPublic } from "./auth.js";
 import type { Database } from "./db.js";
+import { type Mailer, logMailer, resetMail, verifyMail } from "./mail.js";
 import { seedDemo } from "./demo.js";
 import { BANKS, CompetitionService, MIN_WITHDRAWAL, ServiceError } from "./service.js";
 import { COUNTDOWN_MS, GameSession, type ClientMessage, type Clock, systemClock } from "./session.js";
@@ -34,6 +35,10 @@ export interface AppOptions {
   uploadDir?: string;
   /** PostgreSQL storage (DATABASE_URL). Without it everything is lost on restart. */
   db?: Database;
+  /** Sends verification and password reset emails. Defaults to printing them to the log. */
+  mailer?: Mailer;
+  /** Address of the website, used in links sent by email (WEB_ORIGIN). */
+  webOrigin?: string;
 }
 
 /** Sample admin account loaded with DEMO_DATA. */
@@ -85,7 +90,7 @@ export async function buildApp(opts: AppOptions = {}) {
   const service = new CompetitionService(now, (id) => auth.getUser(id)?.nickname, db?.service);
   const saved = db ? await db.load() : null;
   if (saved) {
-    auth.load(saved.users, saved.sessions);
+    auth.load(saved.users, saved.sessions, saved.tokens);
     service.load(saved);
   }
   // Sample data goes in only once: into an empty database, or every start without one.
@@ -93,13 +98,14 @@ export async function buildApp(opts: AppOptions = {}) {
     const demo = seedDemo((id, nickname) => auth.addDemoUser(id, nickname), now());
     service.competitions.push(...demo.competitions);
     service.results.push(...demo.results);
-    await auth.register({
+    const demoAdmin = await auth.register({
       email: DEMO_ADMIN.email,
       password: DEMO_ADMIN.password,
       nickname: "Админ",
       birthDate: "1990-01-01",
       acceptTerms: true,
     });
+    auth.markVerified(demoAdmin);
     auth.saveAll();
     service.saveAll();
   }
@@ -118,6 +124,19 @@ export async function buildApp(opts: AppOptions = {}) {
   const requireUser = (req: FastifyRequest, reply: FastifyReply) => {
     const user = auth.userForSession(req.cookies[SESSION_COOKIE]);
     if (!user) reply.code(401).send({ error: "signed_out", message: "Нэвтэрнэ үү." });
+    return user;
+  };
+
+  /** The signed-in user with a confirmed email, or a 401/403 already sent. */
+  const requireVerified = (req: FastifyRequest, reply: FastifyReply) => {
+    const user = requireUser(req, reply);
+    if (user && !user.emailVerifiedAt) {
+      reply.code(403).send({
+        error: "email_unverified",
+        message: "Эхлээд имэйлээ баталгаажуулна уу. Бид таны имэйл рүү холбоос илгээсэн.",
+      });
+      return undefined;
+    }
     return user;
   };
 
@@ -157,7 +176,7 @@ export async function buildApp(opts: AppOptions = {}) {
   app.post(
     "/api/competitions/:id/enter",
     guarded((req, reply) => {
-      const user = requireUser(req, reply);
+      const user = requireVerified(req, reply);
       if (!user) return;
       const entry = service.enter(user.id, (req.params as { id: string }).id);
       return { entry: service.publicEntry(entry), balance: service.balance(user.id) };
@@ -185,7 +204,7 @@ export async function buildApp(opts: AppOptions = {}) {
   app.post(
     "/api/wallet/withdraw",
     guarded((req, reply) => {
-      const user = requireUser(req, reply);
+      const user = requireVerified(req, reply);
       if (!user) return;
       const w = service.requestWithdrawal(user.id, body(req));
       return { withdrawal: service.publicWithdrawal(w), balance: service.balance(user.id) };
@@ -223,36 +242,95 @@ export async function buildApp(opts: AppOptions = {}) {
     });
   };
 
-  const authRoute =
-    (handler: (body: Record<string, unknown>) => Promise<{ id: string }>) =>
+  const RATE_LIMITED = { error: "rate_limited", message: "Хэт олон оролдлого. Түр хүлээгээд дахин оролдоно уу." };
+
+  const webOrigin = (opts.webOrigin ?? "http://localhost:3000").replace(/\/$/, "");
+
+  /** Emails a one-time link. In demo mode the link is also returned, as there may be no mail server. */
+  const sendLink = (user: { id: string; email: string; nickname: string }, kind: "verify" | "reset") => {
+    const token = auth.issueToken(user.id, kind);
+    const link = `${webOrigin}/${kind}?token=${token}`;
+    const mail = kind === "verify" ? verifyMail(user.email, user.nickname, link) : resetMail(user.email, user.nickname, link);
+    // Not awaited: a slow mail server must not delay the answer, or reveal by timing who has an account.
+    (opts.mailer ?? logMailer).send(mail).catch((e) => console.error("sending mail failed:", e));
+    return opts.demo ? { devLink: link } : {};
+  };
+
+  /** Rate-limited auth endpoint; AuthErrors become 400s with their Mongolian message. */
+  const limited =
+    (handler: (body: Record<string, unknown>, req: FastifyRequest, reply: FastifyReply) => Promise<unknown>) =>
     async (req: FastifyRequest, reply: FastifyReply) => {
-      if (!allowAuthTry(req.ip)) {
-        return reply
-          .code(429)
-          .send({ error: "rate_limited", message: "Хэт олон оролдлого. Түр хүлээгээд дахин оролдоно уу." });
-      }
-      const body = (req.body ?? {}) as Record<string, unknown>;
+      if (!allowAuthTry(req.ip)) return reply.code(429).send(RATE_LIMITED);
       try {
-        const user = await handler(body);
-        setSession(reply, user.id);
-        return { user: pub(auth.getUser(user.id)!) };
+        return await handler(body(req), req, reply);
       } catch (e) {
         if (e instanceof AuthError) return reply.code(400).send({ error: e.code, message: e.message });
         throw e;
       }
     };
 
+  /** Signs the returned user in. */
+  const authRoute = (handler: (body: Record<string, unknown>) => Promise<{ id: string }>) =>
+    limited(async (b, _req, reply) => {
+      const user = await handler(b);
+      setSession(reply, user.id);
+      return { user: pub(auth.getUser(user.id)!) };
+    });
+
   app.post(
     "/api/auth/register",
-    authRoute((b) =>
-      auth.register({
+    limited(async (b, _req, reply) => {
+      if (typeof b.passwordConfirm === "string" && b.passwordConfirm !== b.password)
+        throw new AuthError("password_mismatch", "Давтан оруулсан нууц үг таарахгүй байна.");
+      const user = await auth.register({
         email: b.email,
         password: b.password,
         nickname: b.nickname,
         birthDate: b.birthDate,
         acceptTerms: b.acceptTerms,
-      }),
-    ),
+      });
+      setSession(reply, user.id);
+      return { user: pub(user), ...sendLink(user, "verify") };
+    }),
+  );
+
+  app.post(
+    "/api/auth/verify",
+    limited(async (b) => ({ user: pub(auth.verifyEmail(b.token)) })),
+  );
+
+  // One new verification email per player per minute.
+  const lastResend = new Map<string, number>();
+  app.post("/api/auth/resend-verification", async (req, reply) => {
+    const user = requireUser(req, reply);
+    if (!user) return;
+    if (user.emailVerifiedAt) return { ok: true, alreadyVerified: true };
+    const t = Date.now();
+    if (t - (lastResend.get(user.id) ?? 0) < 60_000)
+      return reply.code(429).send({ error: "rate_limited", message: "Нэг минутын дараа дахин илгээнэ үү." });
+    lastResend.set(user.id, t);
+    return { ok: true, ...sendLink(user, "verify") };
+  });
+
+  // Always answers the same way, so it cannot be used to find out who has an account.
+  app.post(
+    "/api/auth/forgot",
+    limited(async (b) => {
+      const user = auth.findByEmail(b.email);
+      const sent = user ? sendLink(user, "reset") : {};
+      return { ok: true, ...sent };
+    }),
+  );
+
+  app.post(
+    "/api/auth/reset",
+    limited(async (b, _req, reply) => {
+      if (typeof b.passwordConfirm === "string" && b.passwordConfirm !== b.password)
+        throw new AuthError("password_mismatch", "Давтан оруулсан нууц үг таарахгүй байна.");
+      const user = await auth.resetPassword(b.token, b.password);
+      setSession(reply, user.id);
+      return { user: pub(user) };
+    }),
   );
   app.post(
     "/api/auth/login",

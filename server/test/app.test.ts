@@ -85,6 +85,8 @@ describe("paid attempt websocket", () => {
     });
     const session = reg.cookies.find((c) => c.name === "session")!.value;
     const cookies = { session };
+    const token = new URL(reg.json().devLink).searchParams.get("token");
+    await app.inject({ method: "POST", url: "/api/auth/verify", payload: { token } });
 
     const poor = await app.inject({ method: "POST", url: "/api/competitions/demo-1/enter", cookies });
     expect(poor.json()).toMatchObject({ error: "insufficient_funds", need: 5000 });

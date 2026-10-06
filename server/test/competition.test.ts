@@ -76,6 +76,8 @@ describe("registration", () => {
 
   it.each([
     [{ birthDate: "2010-01-01" }, "too_young"],
+    [{ birthDate: "20234-01-01" }, "birthdate_invalid"],
+    [{ birthDate: "1850-01-01" }, "birthdate_invalid"],
     [{ acceptTerms: false }, "terms_required"],
     [{ password: "short" }, "password_short"],
     [{ nickname: "a" }, "nickname_invalid"],
@@ -124,7 +126,7 @@ describe("HTTP API", () => {
     expect(reg.statusCode).toBe(200);
     const cookie = reg.cookies.find((c) => c.name === "session")!;
     expect(cookie.httpOnly).toBe(true);
-    expect(reg.json().user).toEqual({ id: expect.any(String), email: "a@b.mn", nickname: "Анар", isAdmin: false });
+    expect(reg.json().user).toEqual({ id: expect.any(String), email: "a@b.mn", nickname: "Анар", isAdmin: false, emailVerified: false });
 
     const cookies = { session: cookie.value };
     expect((await app.inject({ url: "/api/me", cookies })).json().user.nickname).toBe("Анар");

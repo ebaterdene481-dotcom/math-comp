@@ -3,7 +3,7 @@
 // so a restart or redeploy loses nothing. One server process owns the database.
 
 import pg from "pg";
-import type { AuthPersist, Session, User } from "./auth.js";
+import type { AuthPersist, EmailToken, Session, User } from "./auth.js";
 import type { AttemptResult, Competition } from "./competition.js";
 import type { Entry, ServicePersist, WalletTx, Withdrawal } from "./service.js";
 
@@ -80,6 +80,16 @@ create table if not exists withdrawals (
   decided_at timestamptz,
   reason text
 );
+
+alter table users add column if not exists email_verified_at timestamptz;
+
+create table if not exists email_tokens (
+  token_hash text primary key,
+  user_id text not null references users(id),
+  kind text not null,
+  expires_at timestamptz not null,
+  used boolean not null
+);
 `;
 
 export interface Snapshot {
@@ -90,6 +100,7 @@ export interface Snapshot {
   results: AttemptResult[];
   txs: WalletTx[];
   withdrawals: Withdrawal[];
+  tokens: EmailToken[];
 }
 
 export class Database {
@@ -136,7 +147,7 @@ export class Database {
 
   async load(): Promise<Snapshot> {
     const q = async (sql: string) => (await this.pool.query(sql)).rows;
-    const [users, sessions, competitions, entries, results, txs, withdrawals] = await Promise.all([
+    const [users, sessions, competitions, entries, results, txs, withdrawals, tokens] = await Promise.all([
       q("select * from users order by created_at"),
       q("select * from sessions"),
       q("select * from competitions order by opens_at"),
@@ -144,6 +155,7 @@ export class Database {
       q("select * from results order by id"),
       q("select * from wallet_txs order by at"),
       q("select * from withdrawals order by requested_at"),
+      q("select * from email_tokens where not used and expires_at > now()"),
     ]);
     return {
       users: users.map((r) => ({
@@ -154,6 +166,7 @@ export class Database {
         termsVersion: r.terms_version,
         passwordHash: r.password_hash,
         createdAt: r.created_at,
+        emailVerifiedAt: r.email_verified_at ?? undefined,
       })),
       sessions: sessions.map((r) => ({ tokenHash: r.token_hash, userId: r.user_id, expires: r.expires_at })),
       competitions: competitions.map((r) => ({
@@ -197,16 +210,23 @@ export class Database {
         decidedAt: r.decided_at ?? undefined,
         reason: r.reason ?? undefined,
       })),
+      tokens: tokens.map((r) => ({
+        tokenHash: r.token_hash,
+        userId: r.user_id,
+        kind: r.kind,
+        expires: r.expires_at,
+        used: r.used,
+      })),
     };
   }
 
   readonly auth: AuthPersist = {
     user: (u) =>
       this.write(
-        `insert into users (id, email, nickname, birth_date, terms_version, password_hash, created_at)
-         values ($1, $2, $3, $4, $5, $6, $7)
-         on conflict (id) do update set email = $2, nickname = $3, password_hash = $6`,
-        [u.id, u.email, u.nickname, u.birthDate, u.termsVersion, u.passwordHash, u.createdAt],
+        `insert into users (id, email, nickname, birth_date, terms_version, password_hash, created_at, email_verified_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
+         on conflict (id) do update set email = $2, nickname = $3, password_hash = $6, email_verified_at = $8`,
+        [u.id, u.email, u.nickname, u.birthDate, u.termsVersion, u.passwordHash, u.createdAt, u.emailVerifiedAt ?? null],
       ),
     session: (s) =>
       this.write("insert into sessions (token_hash, user_id, expires_at) values ($1, $2, $3)", [
@@ -215,6 +235,13 @@ export class Database {
         s.expires,
       ]),
     endSession: (h) => this.write("delete from sessions where token_hash = $1", [h]),
+    endUserSessions: (id) => this.write("delete from sessions where user_id = $1", [id]),
+    emailToken: (t) =>
+      this.write(
+        `insert into email_tokens (token_hash, user_id, kind, expires_at, used) values ($1, $2, $3, $4, $5)
+         on conflict (token_hash) do update set used = $5`,
+        [t.tokenHash, t.userId, t.kind, t.expires, t.used],
+      ),
   };
 
   readonly service: ServicePersist = {

@@ -5,6 +5,16 @@ import { ApiError, type User, login, register } from "./lib/api";
 
 type Tab = "login" | "register";
 
+/**
+ * The latest birth date that is 18 today. As the date field's max it also stops the
+ * year box taking more than four digits.
+ */
+function latestBirthDate() {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear() - 18}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export function AuthDialog({
   open,
   onClose,
@@ -102,7 +112,14 @@ export function AuthDialog({
             <>
               <label>
                 Төрсөн огноо
-                <input name="birthDate" type="date" required autoComplete="bday" />
+                <input
+                  name="birthDate"
+                  type="date"
+                  required
+                  autoComplete="bday"
+                  min="1900-01-01"
+                  max={latestBirthDate()}
+                />
                 <small>18 нас хүрсэн хүн оролцоно.</small>
               </label>
               <label className="check">

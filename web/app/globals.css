@@ -418,21 +418,34 @@ a {
   width: 100%;
 }
 
+/* Join and details side by side: the paying button gets the wider share. */
 .join-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
   gap: 8px;
 }
 
-.join-row {
-  flex-wrap: wrap;
+.join-row > .btn {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  font-size: 16px;
+  white-space: nowrap;
 }
 
-.join-row .btn {
-  flex: 1 1 140px;
-  width: auto;
-  min-width: 0;
-  padding-left: 16px;
-  padding-right: 16px;
+.join-row.solo {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.join-row .fee {
+  margin-left: 0.3em;
+}
+
+/* On phones the two buttons stack, full width, so neither label is squeezed. */
+@media (max-width: 480px) {
+  .join-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .join .btn:disabled {
@@ -458,9 +471,10 @@ a {
 }
 
 .signed-in {
-  margin: 12px 0 0;
-  font-size: 15px;
+  margin: 14px 0 0;
+  font-size: 14px;
   color: var(--ink-soft);
+  text-align: center;
 }
 
 .link {

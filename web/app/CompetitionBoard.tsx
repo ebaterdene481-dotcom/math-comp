@@ -132,7 +132,7 @@ export function CompetitionBoard() {
           )}
 
           <div className="join">
-            <div className="join-row">
+            <div className={`join-row${c.status === "finished" ? " solo" : ""}`}>
               <JoinButton competition={c} onEntered={refresh} />
               <Link href="/competition" className="btn btn-quiet join-more">
                 Дэлгэрэнгүй

@@ -17,6 +17,17 @@ export interface Competition {
   maxAttempts: number;
   /** Paid attempt slots taken so far (all players combined). */
   attemptsUsed: number;
+  /** Set by an admin once the prize has been handed to the winner. */
+  award?: Award;
+}
+
+export interface Award {
+  userId: string;
+  nickname: string;
+  points: number;
+  at: Date;
+  /** Tugrik paid into the winner's wallet; 0 when the prize is goods. */
+  cash: number;
 }
 
 export interface AttemptResult {

@@ -9,6 +9,7 @@ import {
   leaderboard,
   statusOf,
 } from "./competition.js";
+import { MAX_ATTEMPTS } from "./competition.js";
 import { ATTEMPT_PER_LEVEL, type Problem, generateProblems } from "./problems.js";
 
 /** After paying, a player has this long to start the attempt. */
@@ -264,6 +265,141 @@ export class CompetitionService {
         bestRank: history.length ? Math.min(...history.map((h) => h.rank)) : null,
       },
       history,
+    };
+  }
+
+  // Admin
+
+  /** Validates what an admin typed for a competition. */
+  private readInput(raw: Record<string, unknown>) {
+    const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+    const name = text(raw.name);
+    const prize = text(raw.prize);
+    const prizeImage = text(raw.prizeImage) || undefined;
+    const entryFee = Number(raw.entryFee);
+    const maxAttempts = raw.maxAttempts === undefined ? MAX_ATTEMPTS : Number(raw.maxAttempts);
+    const opensAt = new Date(text(raw.opensAt));
+    const closesAt = new Date(text(raw.closesAt));
+    if (name.length < 3 || name.length > 60) throw new ServiceError("name_invalid", "Нэр 3–60 тэмдэгт байна.");
+    if (!prize || prize.length > 80) throw new ServiceError("prize_invalid", "Шагналаа бичнэ үү.");
+    if (!Number.isInteger(entryFee) || entryFee < 0 || entryFee > 1_000_000)
+      throw new ServiceError("fee_invalid", "Хураамж 0–1 000 000₮ бүхэл тоо байна.");
+    if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 1000)
+      throw new ServiceError("attempts_invalid", "Оролдлогын тоо 1–1000 байна.");
+    if (Number.isNaN(opensAt.getTime()) || Number.isNaN(closesAt.getTime()))
+      throw new ServiceError("dates_invalid", "Эхлэх, хаагдах цагаа оруулна уу.");
+    if (closesAt <= opensAt) throw new ServiceError("dates_order", "Хаагдах цаг эхлэх цагаас хойно байна.");
+    return { name, prize, prizeImage, entryFee, maxAttempts, opensAt, closesAt };
+  }
+
+  createCompetition(raw: Record<string, unknown>) {
+    const input = this.readInput(raw);
+    if (input.closesAt <= this.now()) throw new ServiceError("dates_past", "Хаагдах цаг өнгөрсөн байна.");
+    const c: Competition = { id: newId(), ...input, attemptsUsed: 0 };
+    this.competitions.push(c);
+    return c;
+  }
+
+  /**
+   * Edits a competition. Once someone has paid, the fee, the attempt count and the
+   * opening time are fixed: players paid under those terms.
+   */
+  updateCompetition(id: string, raw: Record<string, unknown>) {
+    const c = this.competition(id);
+    if (statusOf(c, this.now()) === "finished") throw new ServiceError("finished", "Дууссан тэмцээнийг засах боломжгүй.");
+    const input = this.readInput({ ...this.editable(c), ...raw });
+    if (c.attemptsUsed > 0) {
+      const locked =
+        input.entryFee !== c.entryFee ||
+        input.maxAttempts !== c.maxAttempts ||
+        input.opensAt.getTime() !== c.opensAt.getTime();
+      if (locked)
+        throw new ServiceError(
+          "locked",
+          "Төлбөр төлсөн оролцогч байгаа тул хураамж, оролдлогын тоо, эхлэх цагийг өөрчлөх боломжгүй.",
+        );
+      if (input.closesAt <= this.now()) throw new ServiceError("dates_past", "Хаагдах цаг өнгөрсөн байна.");
+    }
+    Object.assign(c, input);
+    return c;
+  }
+
+  /** Removes a competition nobody has paid for yet. */
+  deleteCompetition(id: string) {
+    const c = this.competition(id);
+    if (c.attemptsUsed > 0)
+      throw new ServiceError("has_entries", "Төлбөр төлсөн оролцогчтой тэмцээнийг устгах боломжгүй.");
+    this.competitions.splice(this.competitions.indexOf(c), 1);
+  }
+
+  private editable(c: Competition) {
+    return {
+      name: c.name,
+      prize: c.prize,
+      prizeImage: c.prizeImage,
+      entryFee: c.entryFee,
+      maxAttempts: c.maxAttempts,
+      opensAt: c.opensAt.toISOString(),
+      closesAt: c.closesAt.toISOString(),
+    };
+  }
+
+  /** Records that the winner got the prize; a cash prize goes into their wallet. Once only. */
+  awardPrize(id: string, cash: number) {
+    const c = this.competition(id);
+    if (statusOf(c, this.now()) !== "finished")
+      throw new ServiceError("not_finished", "Тэмцээн дуусаагүй байна.");
+    if (c.award) throw new ServiceError("already_awarded", "Шагнал аль хэдийн олгогдсон.");
+    if (!Number.isInteger(cash) || cash < 0 || cash > 100_000_000)
+      throw new ServiceError("cash_invalid", "Мөнгөн шагнал 0 эсвэл эерэг бүхэл тоо байна.");
+    const w = this.standings(id)[0];
+    if (!w) throw new ServiceError("no_winner", "Энэ тэмцээнд оноо авсан оролцогч алга.");
+    c.award = { userId: w.userId, nickname: w.nickname, points: w.points, at: this.now(), cash };
+    if (cash > 0) this.txs.push({ id: newId(), userId: w.userId, kind: "prize", amount: cash, at: this.now(), note: c.name });
+    return c.award;
+  }
+
+  /** Every competition with the numbers an admin needs, newest opening first. */
+  adminCompetitions() {
+    return [...this.competitions]
+      .sort((a, b) => b.opensAt.getTime() - a.opensAt.getTime())
+      .map((c) => {
+        const board = this.standings(c.id);
+        return {
+          ...this.publicCompetition(c),
+          players: board.length,
+          fees: this.feesFor(c.id),
+          winner: board[0] ? { nickname: board[0].nickname, points: board[0].points } : null,
+          award: c.award ? { ...c.award, userId: undefined, at: c.award.at.toISOString() } : null,
+        };
+      });
+  }
+
+  /** Fees taken for a competition. The fee cannot change once anyone has paid. */
+  private feesFor(competitionId: string) {
+    const c = this.competition(competitionId);
+    return this.entries.filter((e) => e.competitionId === competitionId).length * c.entryFee;
+  }
+
+  /** The admin dashboard: the current competition and today's money and sign-ups. */
+  dashboard(since: Date) {
+    const current = currentCompetition(this.competitions, this.now());
+    const entriesToday = this.txs.filter((t) => t.kind === "entry" && t.at >= since);
+    return {
+      current: current
+        ? {
+            ...this.publicCompetition(current),
+            players: this.standings(current.id).length,
+            fees: this.feesFor(current.id),
+          }
+        : null,
+      today: {
+        attempts: entriesToday.length,
+        fees: -entriesToday.reduce((sum, t) => sum + t.amount, 0),
+      },
+      awaitingAward: this.competitions.filter(
+        (c) => statusOf(c, this.now()) === "finished" && !c.award && this.standings(c.id).length > 0,
+      ).length,
     };
   }
 }

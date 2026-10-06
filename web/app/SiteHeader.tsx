@@ -26,6 +26,11 @@ export function SiteHeader() {
         <span>5</span> секунд
       </Link>
       <nav className="header-nav">
+        {user?.isAdmin && (
+          <Link href="/admin" className="header-link">
+            Админ
+          </Link>
+        )}
         <Link href="/competitions" className="header-link">
           <span className="long">Өмнөх тэмцээнүүд</span>
           <span className="short">Тэмцээнүүд</span>
@@ -36,11 +41,11 @@ export function SiteHeader() {
         </button>
       )}
       {user && (
-        <Link href="/profile" className="header-user">
+        <Link href="/profile" className="header-user" aria-label={`${user.nickname}: профайл`}>
           <span className="avatar" aria-hidden="true">
             {[...user.nickname][0]?.toUpperCase()}
           </span>
-          {user.nickname}
+          <span className="nick-text">{user.nickname}</span>
         </Link>
       )}
       </nav>

@@ -23,9 +23,16 @@ export interface PublicUser {
   id: string;
   email: string;
   nickname: string;
+  /** Can open the admin page. */
+  isAdmin: boolean;
 }
 
-export const toPublic = (u: User): PublicUser => ({ id: u.id, email: u.email, nickname: u.nickname });
+export const toPublic = (u: User, isAdmin = false): PublicUser => ({
+  id: u.id,
+  email: u.email,
+  nickname: u.nickname,
+  isAdmin,
+});
 
 export class AuthError extends Error {
   constructor(
@@ -74,7 +81,25 @@ export class AuthStore {
   private sessions = new Map<string, { userId: string; expires: number }>();
   static readonly SESSION_MS = 30 * 24 * 3600 * 1000;
 
-  constructor(private readonly now: () => Date = () => new Date()) {}
+  /** Admins are named by email (ADMIN_EMAILS), so no one can make themselves one. */
+  private readonly adminEmails: Set<string>;
+
+  constructor(
+    private readonly now: () => Date = () => new Date(),
+    adminEmails: string[] = [],
+  ) {
+    this.adminEmails = new Set(adminEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
+  }
+
+  isAdmin(user: User) {
+    return this.adminEmails.has(user.email);
+  }
+
+  /** Registered players (sample players excluded), and how many joined since `since`. */
+  userCounts(since: Date) {
+    const real = [...this.users.values()].filter((u) => !u.email.endsWith("@demo.local"));
+    return { total: real.length, since: real.filter((u) => u.createdAt >= since).length };
+  }
 
   async register(input: RegisterInput): Promise<User> {
     const email = typeof input.email === "string" ? input.email.trim().toLowerCase() : "";

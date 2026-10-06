@@ -124,7 +124,7 @@ describe("HTTP API", () => {
     expect(reg.statusCode).toBe(200);
     const cookie = reg.cookies.find((c) => c.name === "session")!;
     expect(cookie.httpOnly).toBe(true);
-    expect(reg.json().user).toEqual({ id: expect.any(String), email: "a@b.mn", nickname: "Анар" });
+    expect(reg.json().user).toEqual({ id: expect.any(String), email: "a@b.mn", nickname: "Анар", isAdmin: false });
 
     const cookies = { session: cookie.value };
     expect((await app.inject({ url: "/api/me", cookies })).json().user.nickname).toBe("Анар");

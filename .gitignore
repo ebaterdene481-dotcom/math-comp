@@ -6,3 +6,5 @@ dist
 !.env.example
 next-env.d.ts
 *.tsbuildinfo
+uploads/
+server/uploads/

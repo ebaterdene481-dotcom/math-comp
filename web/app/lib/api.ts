@@ -29,6 +29,7 @@ export interface User {
   id: string;
   email: string;
   nickname: string;
+  isAdmin?: boolean;
 }
 
 export class ApiError extends Error {
@@ -176,3 +177,46 @@ export const demoTopUp = (amount: number) =>
 export const attemptSocketUrl = (entryId: string) =>
   (process.env.NEXT_PUBLIC_GAME_WS_URL ?? "ws://localhost:4000/ws/practice").replace(/\/ws\/practice$/, "") +
   `/ws/attempt/${entryId}`;
+
+// Admin
+
+export interface AdminCompetition extends CompetitionInfo {
+  players: number;
+  /** Tugrik taken in entry fees. */
+  fees: number;
+  winner: { nickname: string; points: number } | null;
+  award: { nickname: string; points: number; at: string; cash: number } | null;
+}
+
+export interface AdminDashboard {
+  current: (CompetitionInfo & { players: number; fees: number }) | null;
+  today: { attempts: number; fees: number };
+  users: { total: number; since: number };
+  awaitingAward: number;
+}
+
+export interface CompetitionForm {
+  name: string;
+  prize: string;
+  prizeImage?: string;
+  entryFee: number;
+  maxAttempts: number;
+  opensAt: string;
+  closesAt: string;
+}
+
+export const getAdminDashboard = () => call<AdminDashboard>("/api/admin/dashboard");
+export const getAdminCompetitions = () => call<{ competitions: AdminCompetition[] }>("/api/admin/competitions");
+export const createCompetition = (form: CompetitionForm) =>
+  call<{ competition: CompetitionInfo }>("/api/admin/competitions", { method: "POST", body: JSON.stringify(form) });
+export const updateCompetition = (id: string, form: Partial<CompetitionForm>) =>
+  call<{ competition: CompetitionInfo }>(`/api/admin/competitions/${id}`, { method: "PUT", body: JSON.stringify(form) });
+export const deleteCompetition = (id: string) =>
+  call<{ ok: true }>(`/api/admin/competitions/${id}`, { method: "DELETE" });
+export const awardPrize = (id: string, cash: number) =>
+  call<{ award: AdminCompetition["award"] }>(`/api/admin/competitions/${id}/award`, {
+    method: "POST",
+    body: JSON.stringify({ cash }),
+  });
+export const uploadImage = (dataUrl: string) =>
+  call<{ url: string }>("/api/admin/uploads", { method: "POST", body: JSON.stringify({ dataUrl }) });

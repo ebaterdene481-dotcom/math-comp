@@ -13,6 +13,7 @@ const PRIZE_IMAGES: Record<string, string> = {
   "/prizes/demo-headphones.svg": headphonesImage,
   "/prizes/demo-mouse.svg": mouseImage,
 };
+import type { Award, Competition } from "../../server/src/competition";
 import { seedDemo } from "../../server/src/demo";
 import { PRACTICE_PER_LEVEL, generateProblems } from "../../server/src/problems";
 import { CompetitionService, ServiceError, type Entry, type WalletTx } from "../../server/src/service";
@@ -46,21 +47,51 @@ const store = {
   },
 };
 
-const users = () => store.get<StoredUser[]>("preview.users", []);
+/** Sample admin, same as DEMO_ADMIN on the server. */
+const ADMIN: StoredUser = { id: "1", email: "admin@demo.mn", nickname: "Админ", password: "admin12345" };
+const users = () => {
+  const list = store.get<StoredUser[]>("preview.users", []);
+  return list.some((u) => u.email === ADMIN.email) ? list : [ADMIN, ...list];
+};
 const me = () => users().find((u) => u.id === store.get<string | null>("preview.session", null)) ?? null;
-const pub = (u: StoredUser) => ({ id: u.id, email: u.email, nickname: u.nickname });
+const pub = (u: StoredUser) => ({ id: u.id, email: u.email, nickname: u.nickname, isAdmin: u.email === ADMIN.email });
 
-/** Wallet, entries and scores survive a reload; the sample competition is rebuilt each time. */
+type SavedCompetition = Omit<Competition, "opensAt" | "closesAt" | "award"> & {
+  opensAt: string;
+  closesAt: string;
+  award?: Omit<Award, "at"> & { at: string };
+};
+
+const reviveCompetition = (c: SavedCompetition): Competition => ({
+  ...c,
+  opensAt: new Date(c.opensAt),
+  closesAt: new Date(c.closesAt),
+  award: c.award && { ...c.award, at: new Date(c.award.at) },
+});
+
+/**
+ * Wallet, entries, scores and admin changes survive a reload. The sample competitions
+ * are rebuilt around today each time, so the live one stays live; only what an admin
+ * changed on them (name, prize, picture, award…) is laid back on top.
+ */
 function loadService() {
   const demo = seedDemo((id, nickname) => demoNames.set(id, nickname), new Date());
   const all = demo.competitions.map((c) => ({ ...c, prizeImage: c.prizeImage && PRIZE_IMAGES[c.prizeImage] }));
-  const comp = all[0];
-  const saved = store.get<{ txs: WalletTx[]; entries: Entry[]; results: typeof demo.results; used: number } | null>(
-    "preview.service",
-    null,
-  );
-  if (saved) comp.attemptsUsed = saved.used;
-  service.competitions.push(...all);
+  const saved = store.get<{
+    txs: WalletTx[];
+    entries: Entry[];
+    results: typeof demo.results;
+    sample?: Record<string, Partial<SavedCompetition>>;
+    added?: SavedCompetition[];
+    removed?: string[];
+  } | null>("preview.service", null);
+  for (const c of all) {
+    if (saved?.removed?.includes(c.id)) continue;
+    const edit = saved?.sample?.[c.id];
+    const { opensAt: _o, closesAt: _c, award, ...rest } = edit ?? {};
+    service.competitions.push({ ...c, ...rest, award: award && { ...award, at: new Date(award.at) } } as Competition);
+  }
+  service.competitions.push(...(saved?.added ?? []).map(reviveCompetition));
   service.results.push(...demo.results);
   if (!saved) return;
   service.txs.push(...saved.txs.map((t) => ({ ...t, at: new Date(t.at) })));
@@ -73,12 +104,23 @@ function loadService() {
   save();
 }
 
+const SAMPLE_IDS = ["demo-1", "demo-past-1", "demo-past-2"];
+
 function save() {
+  const toSaved = (c: Competition): SavedCompetition => JSON.parse(JSON.stringify(c));
+  const sample: Record<string, Partial<SavedCompetition>> = {};
+  for (const c of service.competitions)
+    if (SAMPLE_IDS.includes(c.id)) {
+      const { opensAt: _o, closesAt: _c, ...rest } = toSaved(c);
+      sample[c.id] = rest;
+    }
   store.set("preview.service", {
     txs: service.txs,
     entries: service.entries,
     results: service.results.filter((r) => !demoNames.has(r.userId)),
-    used: service.competitions[0].attemptsUsed,
+    sample,
+    added: service.competitions.filter((c) => !SAMPLE_IDS.includes(c.id)).map(toSaved),
+    removed: SAMPLE_IDS.filter((id) => !service.competitions.some((c) => c.id === id)),
   });
 }
 
@@ -99,6 +141,12 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
       status: 200,
       body: { competition, leaders: leaders.map(({ rank, nickname, points }) => ({ rank, nickname, points })) },
     };
+  }
+  if (path.startsWith("/api/admin/")) {
+    const u = me();
+    if (!u) return signedOut;
+    if (u.email !== ADMIN.email) return { status: 403, body: { error: "forbidden", message: "Админ эрх шаардлагатай." } };
+    return adminRoute(path, method, b);
   }
   if (path === "/api/competitions/past") {
     return { status: 200, body: { competitions: service.pastCompetitions() } };
@@ -179,6 +227,55 @@ function route(path: string, method: string, b: Record<string, any>): { status: 
     store.set("preview.users", [...all, u]);
     store.set("preview.session", u.id);
     return { status: 200, body: { user: pub(u) } };
+  }
+  return { status: 404, body: { error: "not_found" } };
+}
+
+function startOfDay() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function adminRoute(path: string, method: string, b: Record<string, any>): { status: number; body: unknown } {
+  const ok = (body: unknown) => ({ status: 200, body });
+  if (path === "/api/admin/dashboard") {
+    const since = startOfDay();
+    const list = users().filter((u) => u.email !== ADMIN.email);
+    return ok({
+      ...service.dashboard(since),
+      users: { total: list.length, since: list.filter((u) => Number(u.id) >= since.getTime()).length },
+    });
+  }
+  if (path === "/api/admin/competitions" && method === "GET") return ok({ competitions: service.adminCompetitions() });
+  if (path === "/api/admin/competitions" && method === "POST") {
+    const c = service.createCompetition(b);
+    save();
+    return ok({ competition: service.publicCompetition(c) });
+  }
+  if (path === "/api/admin/uploads") {
+    // No file server here: the picture itself becomes the address.
+    const m = /^data:image\/(png|jpeg|webp);base64,/.exec(String(b.dataUrl ?? ""));
+    if (!m) return fail("image_type", "Зөвхөн PNG, JPG эсвэл WebP зураг оруулна уу.");
+    if (String(b.dataUrl).length > 2.8 * 1024 * 1024) return fail("image_size", "Зураг 2 МБ-аас бага байна.");
+    return ok({ url: b.dataUrl });
+  }
+  const award = path.match(/^\/api\/admin\/competitions\/([^/]+)\/award$/);
+  if (award) {
+    const a = service.awardPrize(award[1], Number(b.cash ?? 0));
+    save();
+    return ok({ award: { ...a, userId: undefined, at: a.at.toISOString() } });
+  }
+  const one = path.match(/^\/api\/admin\/competitions\/([^/]+)$/);
+  if (one && method === "PUT") {
+    const c = service.updateCompetition(one[1], b);
+    save();
+    return ok({ competition: service.publicCompetition(c) });
+  }
+  if (one && method === "DELETE") {
+    service.deleteCompetition(one[1]);
+    save();
+    return ok({ ok: true });
   }
   return { status: 404, body: { error: "not_found" } };
 }

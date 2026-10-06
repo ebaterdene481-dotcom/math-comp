@@ -7,6 +7,7 @@ import Home from "../app/page";
 import Practice from "../app/practice/page";
 import Profile from "../app/profile/page";
 import Wallet from "../app/wallet/page";
+import Admin from "../app/admin/page";
 import Play from "../app/play/page";
 import Competition from "../app/competition/page";
 import Competitions from "../app/competitions/page";
@@ -30,6 +31,7 @@ function App() {
   if (route === "practice") return <Practice />;
   if (route === "profile") return <Profile />;
   if (route === "wallet") return <Wallet />;
+  if (route === "admin") return <Admin />;
   if (route === "play") return <Play />;
   // key: a different competition id mounts a fresh page.
   if (route === "competition" || route === "leaderboard") return <Competition key={query} />;

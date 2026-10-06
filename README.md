@@ -28,12 +28,19 @@ Product spec (Mongolian): https://claude.ai/code/artifact/ff93ef08-c8c2-4d56-9c1
   player's own place and the gap to the next one up, and the current leaders table.
 - Past competitions page (/competitions): every closed competition with its prize and
   winner; each opens its own competition page (/competition?id=…) with the final results.
+- Admin page (/admin): dashboard (current competition, attempts sold, fees, sign-ups),
+  create / edit / delete competitions with a prize picture upload (PNG, JPG or WebP up to
+  2 MB, checked by its first bytes), and marking a winner's prize as handed over (a cash
+  prize goes into their wallet). Once anyone has paid, the fee, attempt count and opening
+  time are locked. Admins are named by email in `ADMIN_EMAILS`; with `DEMO_DATA=1` the
+  sample admin is admin@demo.mn / admin12345. Uploads go to `UPLOAD_DIR` (default ./uploads).
 - Profile page: account details, wallet balance, competitions played with best score and
   rank. Sign in from the header on every page.
 - Accounts: email + password, nickname, birth date (18+), terms acceptance; session in an
   httpOnly cookie. In memory for now.
 
-Not built yet: database, real payment and withdrawals, prize payout, admin. Sample competition
+Not built yet: database, real payment and withdrawals, admin user management and
+withdrawal approval. Sample competition
 data loads when `DEMO_DATA=1` (on by default outside production).
 
 ## Layout
@@ -58,6 +65,7 @@ web/      Next.js front end
   app/play/page.tsx       paid 100-problem run
   app/competition/page.tsx  competition details, rules and leaders (?id= for a past one)
   app/competitions/page.tsx past competitions and their winners
+  app/admin/page.tsx        admin: dashboard, competitions, prizes
   app/practice/page.tsx   practice game
   app/game/               game screen, socket hook and results shared by practice and play
 ```

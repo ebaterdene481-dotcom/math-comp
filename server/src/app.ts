@@ -1,4 +1,6 @@
-import { randomInt } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
@@ -25,11 +27,39 @@ export interface AppOptions {
   /** Wall clock for competition status; tests pass a fixed date. */
   now?: () => Date;
   secureCookies?: boolean;
+  /** Emails that get the admin page (ADMIN_EMAILS). */
+  adminEmails?: string[];
+  /** Where uploaded prize pictures are kept. */
+  uploadDir?: string;
 }
+
+/** Sample admin account loaded with DEMO_DATA. */
+export const DEMO_ADMIN = { email: "admin@demo.mn", password: "admin12345" };
+
+/** Largest prize picture an admin may upload. */
+export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+
+const IMAGE_TYPES: Record<string, { ext: string; magic: (b: Buffer) => boolean }> = {
+  "image/png": { ext: "png", magic: (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) },
+  "image/jpeg": { ext: "jpg", magic: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  "image/webp": { ext: "webp", magic: (b) => b.subarray(0, 4).toString() === "RIFF" && b.subarray(8, 12).toString() === "WEBP" },
+};
+
+/** Midnight in Ulaanbaatar (UTC+8) at the start of `now`'s day. */
+function startOfDayUB(now: Date) {
+  const offset = 8 * 3600_000;
+  return new Date(Math.floor((now.getTime() + offset) / 86_400_000) * 86_400_000 - offset);
+}
+
+const body = (req: FastifyRequest) => (req.body ?? {}) as Record<string, unknown>;
 
 export async function buildApp(opts: AppOptions = {}) {
   const app = Fastify({ logger: false, trustProxy: true });
-  await app.register(cors, { origin: opts.corsOrigin ?? true, credentials: true });
+  await app.register(cors, {
+    origin: opts.corsOrigin ?? true,
+    credentials: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "DELETE"],
+  });
   await app.register(cookie);
   await app.register(websocket, { options: { maxPayload: 1024 } });
 
@@ -46,12 +76,20 @@ export async function buildApp(opts: AppOptions = {}) {
   app.get("/health", async () => ({ ok: true }));
 
   const now = opts.now ?? (() => new Date());
-  const auth = new AuthStore(now);
+  const auth = new AuthStore(now, [...(opts.adminEmails ?? []), ...(opts.demo ? [DEMO_ADMIN.email] : [])]);
+  const pub = (u: Parameters<typeof toPublic>[0]) => toPublic(u, auth.isAdmin(u));
   const service = new CompetitionService(now, (id) => auth.getUser(id)?.nickname);
   if (opts.demo) {
     const demo = seedDemo((id, nickname) => auth.addDemoUser(id, nickname), now());
     service.competitions.push(...demo.competitions);
     service.results.push(...demo.results);
+    await auth.register({
+      email: DEMO_ADMIN.email,
+      password: DEMO_ADMIN.password,
+      nickname: "Админ",
+      birthDate: "1990-01-01",
+      acceptTerms: true,
+    });
   }
 
   /** The signed-in user, or a 401 already sent. */
@@ -159,7 +197,7 @@ export async function buildApp(opts: AppOptions = {}) {
       try {
         const user = await handler(body);
         setSession(reply, user.id);
-        return { user: toPublic(auth.getUser(user.id)!) };
+        return { user: pub(auth.getUser(user.id)!) };
       } catch (e) {
         if (e instanceof AuthError) return reply.code(400).send({ error: e.code, message: e.message });
         throw e;
@@ -192,12 +230,99 @@ export async function buildApp(opts: AppOptions = {}) {
   app.get("/api/me/profile", async (req, reply) => {
     const user = requireUser(req, reply);
     if (!user) return;
-    return { user: { ...toPublic(user), createdAt: user.createdAt.toISOString() }, ...service.profile(user.id) };
+    return { user: { ...pub(user), createdAt: user.createdAt.toISOString() }, ...service.profile(user.id) };
   });
 
   app.get("/api/me", async (req) => {
     const user = auth.userForSession(req.cookies[SESSION_COOKIE]);
-    return { user: user ? toPublic(user) : null };
+    return { user: user ? pub(user) : null };
+  });
+
+  // Admin
+
+  const requireAdmin = (req: FastifyRequest, reply: FastifyReply) => {
+    const user = auth.userForSession(req.cookies[SESSION_COOKIE]);
+    if (!user) {
+      reply.code(401).send({ error: "signed_out", message: "Нэвтэрнэ үү." });
+      return undefined;
+    }
+    if (!auth.isAdmin(user)) {
+      reply.code(403).send({ error: "forbidden", message: "Админ эрх шаардлагатай." });
+      return undefined;
+    }
+    return user;
+  };
+
+  const admin =
+    <T>(fn: (req: FastifyRequest) => T) =>
+    guarded((req, reply) => (requireAdmin(req, reply) ? fn(req) : undefined));
+
+  app.get(
+    "/api/admin/dashboard",
+    admin(() => {
+      const since = startOfDayUB(now());
+      return { ...service.dashboard(since), users: auth.userCounts(since) };
+    }),
+  );
+  app.get(
+    "/api/admin/competitions",
+    admin(() => ({ competitions: service.adminCompetitions() })),
+  );
+  app.post(
+    "/api/admin/competitions",
+    admin((req) => ({ competition: service.publicCompetition(service.createCompetition(body(req))) })),
+  );
+  app.put(
+    "/api/admin/competitions/:id",
+    admin((req) => ({
+      competition: service.publicCompetition(service.updateCompetition((req.params as { id: string }).id, body(req))),
+    })),
+  );
+  app.delete(
+    "/api/admin/competitions/:id",
+    admin((req) => {
+      service.deleteCompetition((req.params as { id: string }).id);
+      return { ok: true };
+    }),
+  );
+  app.post(
+    "/api/admin/competitions/:id/award",
+    admin((req) => {
+      const award = service.awardPrize((req.params as { id: string }).id, Number(body(req).cash ?? 0));
+      return { award: { ...award, userId: undefined, at: award.at.toISOString() } };
+    }),
+  );
+
+  // Prize pictures: PNG, JPEG or WebP sent as a data URL, checked by their first bytes.
+  const uploadDir = opts.uploadDir ?? join(process.cwd(), "uploads");
+  app.post(
+    "/api/admin/uploads",
+    { bodyLimit: Math.ceil(MAX_UPLOAD_BYTES * 1.4) + 1024 },
+    admin(async (req) => {
+      const m = /^data:(image\/[a-z]+);base64,([A-Za-z0-9+/=]+)$/.exec(String(body(req).dataUrl ?? ""));
+      const type = m && IMAGE_TYPES[m[1]];
+      const bytes = m ? Buffer.from(m[2], "base64") : Buffer.alloc(0);
+      if (!type || !type.magic(bytes))
+        throw new ServiceError("image_type", "Зөвхөн PNG, JPG эсвэл WebP зураг оруулна уу.");
+      if (bytes.length > MAX_UPLOAD_BYTES) throw new ServiceError("image_size", "Зураг 2 МБ-аас бага байна.");
+      const name = `${randomUUID()}.${type.ext}`;
+      await mkdir(uploadDir, { recursive: true });
+      await writeFile(join(uploadDir, name), bytes);
+      return { url: `${req.protocol}://${req.host}/uploads/${name}` };
+    }),
+  );
+
+  app.get("/uploads/:name", async (req, reply) => {
+    const { name } = req.params as { name: string };
+    const m = /^[0-9a-f-]{36}\.(png|jpg|webp)$/.exec(name);
+    if (!m) return reply.code(404).send();
+    try {
+      const data = await readFile(join(uploadDir, name));
+      const type = m[1] === "jpg" ? "image/jpeg" : `image/${m[1]}`;
+      return reply.header("content-type", type).header("x-content-type-options", "nosniff").send(data);
+    } catch {
+      return reply.code(404).send();
+    }
   });
 
   /** Forwards well-formed answers and pongs from the browser to a run. */
